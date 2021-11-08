@@ -424,7 +424,8 @@ c-----------------------------------------------------------------
 	call hydro_vertical(dzeta)		!compute vertical velocities
 
 	!if (bnohyd) call nh_handle_output(dtime)
-	if (bnohyd .or. (iwvel .eq. 1)) then
+	!if (bnohyd .or. (iwvel .eq. 1)) then
+        if (iwvel .eq. 1) then
 	  call nh_handle_output(dtime)!DWNH
 	end if
 
