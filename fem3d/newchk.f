@@ -309,11 +309,11 @@ c checks important variables
 
 	text = '*** check_values'
 
-	call check1Dr(nkn,zov,-10.,+10.,text,'zov')
-	call check1Dr(nkn,znv,-10.,+10.,text,'znv')
+	!call check1Dr(nkn,zov,-10.,+10.,text,'zov')
+	!call check1Dr(nkn,znv,-10.,+10.,text,'znv')
 
-	call check2Dr(3,3,nel,zeov,-10.,+10.,text,'zeov')
-	call check2Dr(3,3,nel,zenv,-10.,+10.,text,'zenv')
+	!call check2Dr(3,3,nel,zeov,-10.,+10.,text,'zeov')
+	!call check2Dr(3,3,nel,zenv,-10.,+10.,text,'zenv')
 
 	call check1Dr(nel,unv,-10000.,+10000.,text,'unv')
 	call check1Dr(nel,vnv,-10000.,+10000.,text,'vnv')
