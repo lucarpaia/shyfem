@@ -2651,6 +2651,13 @@ c*****************************************************************
 	  units = 'degC'
 	  cmin = -10.
 	  cmax = 100.
+        else if( ivar .eq. 14 ) then    ! vertical velocity
+          name = 'w_velocity'
+          what = 'standard_name'
+          std = 'vertical_sea_water_velocity'
+          units = 'm s-1'
+          cmin = -10.
+          cmax = +10.                
 	else if( ivar .eq. 19 ) then	! vorticity
 	  name = 'vorticity'
 	  what = 'standard_name'
