@@ -349,7 +349,7 @@ c	kin = (1/2) * rho * area * (U*U+V*V)/H
 
 	include 'pkonst.h'
 
-	integer ie,ii,l,lmax,ia,k,ntot
+	integer ie,ii,l,lmax,lmin,ia,k,ntot
 	double precision area,pot,kin,kinsurf,z,zz,ke
 	double precision h,uu,vv,rho
 
@@ -379,7 +379,8 @@ c	kin = (1/2) * rho * area * (U*U+V*V)/H
           pot = pot + area * rho * zz
 
 	  lmax = ilhv(ie)
-	  do l=1,lmax
+	  lmin = jlhv(ie)
+	  do l=lmin,lmax
 	    rho = 0.
 	    do ii=1,3
 	      k = nen3v(ii,ie)

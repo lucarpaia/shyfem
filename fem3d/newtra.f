@@ -220,8 +220,8 @@ c transforms velocities to nodal values
 
 	implicit none
 
-	integer ie,l,k,ii
-	integer lmax
+	integer ie,l,lmiss,k,ii
+	integer lmax,lmin
 	real aj
 	!real vv(nlvdi,nkn)
 	real, allocatable :: vv(:,:)
@@ -236,13 +236,22 @@ c baroclinic part
 	do ie=1,nel
 	  if ( iwegv(ie) /= 0 ) cycle
           lmax = ilhv(ie)
+	  lmin = jlhv(ie)
 	  aj=ev(10,ie)
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    do ii=1,3
 	      k=nen3v(ii,ie)
 	      vv(l,k)=vv(l,k)+aj
 	      uprv(l,k)=uprv(l,k)+aj*ulnv(l,ie)
 	      vprv(l,k)=vprv(l,k)+aj*vlnv(l,ie)
+	      !case of an element with less layers then
+	      !the other elements sourrouding node k
+	      if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+		do lmiss=lmin-1,jlhkv(k),-1   
+	          uprv(lmiss,k)=uprv(lmiss,k)+aj*ulnv(lmin,ie)
+                  vv(lmiss,k)=vv(lmiss,k)+aj    		  
+		end do
+	      end if
 	    end do
 	  end do
 	end do
@@ -277,6 +286,7 @@ c
 c transforms nodal values to element values (velocities)
 c
 	use mod_geom_dynamic
+	use mod_layer_thickness
 	use mod_hydro_print
 	use mod_hydro_vel
 	use levels
@@ -284,20 +294,36 @@ c
 
 	implicit none
 
-	integer ie,l,k,ii
-	real u,v
+	integer ie,l,lmiss,k,ii
+	integer lmin,lmax
+	real u,v,htot
 c
 c baroclinic part
 c
 	do ie=1,nel
 	 if( iwegv(ie) .eq. 0 ) then
-	  do l=1,ilhv(ie)
+	  lmax = ilhv(ie)
+          lmin = jlhv(ie)	 
+	  do l=lmin,lmax
 	    u=0.
 	    v=0.
 	    do ii=1,3
 	      k=nen3v(ii,ie)
-	      u=u+uprv(l,k)
-	      v=v+vprv(l,k)
+              !case of node k surrounded by elements with different nb
+	      !of layers: averages with 1 point quadrature in the vertex
+              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+		htot = 0.0
+            	do lmiss=lmin,jlhkv(k),-1
+                  htot = htot + hdknv(lmiss,k)
+            	end do      
+                do lmiss=lmin,jlhkv(k),-1
+                  u=u+uprv(lmiss,k) * hdknv(lmiss,k)/htot
+                  v=v+vprv(lmiss,k) * hdknv(lmiss,k)/htot
+                end do
+	      else 
+	        u=u+uprv(l,k)
+	        v=v+vprv(l,k)
+	      endif
 	    end do
 	    ulnv(l,ie)=u/3.
 	    vlnv(l,ie)=v/3.
@@ -338,7 +364,7 @@ c
 	do ie=1,nel
 	  u=0.
 	  v=0.
-	  do l=1,ilhv(ie)
+	  do l=jlhv(ie),ilhv(ie)
 	    u=u+utlnv(l,ie)
 	    v=v+vtlnv(l,ie)
 	  end do
@@ -359,7 +385,7 @@ c only first layer has to be checked
 
 	use mod_layer_thickness
 	use mod_hydro
-	use levels, only : nlvdi,nlv
+	use levels, only : nlvdi,nlv,jlhv,jlhkv
 	use basin, only : nkn,nel,ngr,mbw
 
 	implicit none
@@ -379,7 +405,7 @@ c only first layer has to be checked
 
 	if( .not. bsigma ) then		!not sure we need this - FIXME
 	 do k=1,nkn
-	  h = hdknv(1,k)
+	  h = hdknv(jlhkv(k),k)
 	  if( h .le. 0. ) then
 	    z = znv(k)
 	    ke = ipext(k)
@@ -392,7 +418,7 @@ c only first layer has to be checked
 	end if
 
 	do ie=1,nel
-	  h = hdenv(1,ie)
+	  h = hdenv(jlhv(ie),ie)
 	  if( h .le. 0. ) then
 	    iee = ieext(ie)
 	    write(6,*) 'negative depth in elem (layer 1): '
@@ -666,7 +692,7 @@ c arguments
         real aux(nlvddi,nkn)     !aux array (nkn)
 
 c local
-        integer k,ie,ii,l,lmax
+        integer k,ie,ii,l,lmiss,lmax,lmin
         real area,value
 
 c-----------------------------------------------------------
@@ -683,12 +709,21 @@ c-----------------------------------------------------------
         do ie=1,nel
           area = 4.*ev(10,ie)
 	  lmax = ilhv(ie)
-	  do l=1,lmax
+	  lmin = jlhv(ie)
+	  do l=lmin,lmax
             value = elv(l,ie)
             do ii=1,3
               k = nen3v(ii,ie)
               nov(l,k) = nov(l,k) + area*value
               aux(l,k) = aux(l,k) + area
+              !case of an element with less layers then
+              !the other elements sourrouding node k
+              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+                do lmiss=lmin-1,jlhkv(k),-1
+                  nov(lmiss,k) = nov(lmiss,k) + area*value
+                  aux(lmiss,k) = aux(lmiss,k) + area
+                end do
+              end if
 	    end do
           end do
         end do
@@ -727,7 +762,7 @@ c arguments
         real nov(nlvddi,nkn)      !array with nodal values (out)
 
 c local
-        integer k,ie,ii,l,lmax
+        integer k,ie,ii,l,lmiss,lmax,lmin
         real rinit,value
 
 c-----------------------------------------------------------
@@ -750,7 +785,8 @@ c-----------------------------------------------------------
 
         do ie=1,nel
 	  lmax = ilhv(ie)
-	  do l=1,lmax
+	  lmin = jlhv(ie)
+	  do l=lmin,lmax
             value = elv(l,ie)
             do ii=1,3
               k = nen3v(ii,ie)
@@ -759,6 +795,17 @@ c-----------------------------------------------------------
 	      else
                 nov(l,k) = min(nov(l,k),value)
 	      end if
+              !case of an element with less layers then
+              !the other elements sourrouding node k
+              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+                do lmiss=lmin-1,jlhkv(k),-1
+                  if( mode .eq. 1 ) then
+                    nov(lmiss,k) = max(nov(lmiss,k),value)
+                  else
+                    nov(lmiss,k) = min(nov(lmiss,k),value)
+                  end if
+		end do
+              end if	      
 	    end do
           end do
         end do
@@ -818,6 +865,7 @@ c
 c (3D version)
 
 	use levels
+	use mod_layer_thickness
 	use basin
 
         implicit none
@@ -828,21 +876,34 @@ c arguments
         real elv(nlvddi,nel)	!array with element values (out)
 
 c local
-        integer k,ie,ii,l,lmax
-        real acu,value
+        integer k,ie,ii,l,lmiss,lmax,lmin
+        real acu,value,htot
 
 c-----------------------------------------------------------
 c convert values
 c-----------------------------------------------------------
-
+	
         do ie=1,nel
           lmax = ilhv(ie)
-          do l = 1,lmax
+	  lmin = jlhv(ie)
+          do l = lmin,lmax
 	    acu = 0.
             do ii=1,3
               k = nen3v(ii,ie)
               value = nov(l,k)
-              acu = acu + value
+	      !case of node k surrounded by elements with different nb
+              !of layers: averages with 1 point quadrature in the vertex
+              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+                htot = 0.0
+                do lmiss=lmin,jlhkv(k),-1
+                  htot = htot + hdknv(lmiss,k)
+                end do
+                do lmiss=lmin,jlhkv(k),-1
+                  acu = acu + nov(lmiss,k) * hdknv(lmiss,k)/htot
+                end do
+              else
+                acu = acu + value
+	      endif
 	    end do
             elv(l,ie) = acu / 3.
           end do

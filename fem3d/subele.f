@@ -653,8 +653,8 @@ c sets up area for nodes
 
 	implicit none
 
-	integer k,l,ie,ii
-	integer nlev,n
+	integer k,l,lmiss,ie,ii
+	integer nlev,flev,n
 	real areael,areafv
 	real areaele
 
@@ -665,11 +665,22 @@ c sets up area for nodes
 	  areael = areaele(ie)
 	  areafv = areael / n
 	  nlev = ilhv(ie)
+	  flev = jlhv(ie)
 	  do ii=1,n
 	    k = nen3v(ii,ie)
-	    do l=1,nlev
+	    !if( flev .eq. jlhkv(k) ) then 
+	    !  areakv(flev,k) = areakv(flev,k) + areafv
+	    !end if	
+	    do l=flev,nlev
 	      areakv(l,k) = areakv(l,k) + areafv
 	    end do
+	    !case of an element with less layers then
+            !the other elements sourrouding node k
+            if (l.eq.flev .and. flev.gt.jlhkv(k)) then
+              do lmiss=flev-1,jlhkv(k),-1
+	        areakv(l,k) = areakv(l,k) + areafv
+	      end do
+      	    end if
 	  end do
 	end do
 
@@ -894,7 +905,53 @@ c checks differences between old and new depth values (debug)
 	write(6,*) 'check_diff_depth: ',idiff
 
 	end
-	  
+
+c***********************************************************
+
+        subroutine make_new_transport
+
+c conservative remap of the transports when a top
+c layer is removed/inserted	
+
+	use levels	
+        use mod_layer_thickness
+        use mod_hydro
+	use basin, only : nel
+
+        implicit none
+
+	integer ie,l,lminnv,lminov
+	real htot  			 !total depth of inserted layers
+
+        do ie=1,nel
+
+	  lminnv = jlhv(ie)
+          lminov = jlhov(ie)
+
+	  if (lminnv > lminov) then 	 !top layer element removed
+	    do l=lminnv-1,lminov,-1	 !loop over removed layers 	
+	      utlnv(lminnv,ie) = utlnv(lminnv,ie) + utlnv(l,ie)
+              vtlnv(lminnv,ie) = vtlnv(lminnv,ie) + vtlnv(l,ie)	      
+      	      utlnv(l,ie) = 0.0		 !cleaning removed layer	   
+	      vtlnv(l,ie) = 0.0          !
+	    end do
+
+	  else if (lminnv < lminov) then !top layer inserted
+	    htot = 0.0
+	    do l=lminov,lminnv,-1 
+              htot = htot + hdenv(l,ie)   
+            end do  
+	    do l=lminov,lminnv,-1 	 !loop over inserted layers 
+	      utlnv(l,ie) = utlnv(lminov,ie) * hdenv(l,ie)/htot
+	      vtlnv(l,ie) = vtlnv(lminov,ie) * hdenv(l,ie)/htot 
+            end do	      
+c	  else				 !no insertion/removal happened 	
+	  endif    
+
+	end do
+
+        end
+
 c***********************************************************
 
 	subroutine setdepth(levdim,hdkn,hden,zenv,area)
@@ -913,12 +970,12 @@ c sets up depth array for nodes
 	real hdkn(levdim,nkn)	!depth at node, new time level
 	real hden(levdim,nel)	!depth at element, new time level
 	real zenv(3,nel)    	!water level at new time level
-	real area(levdim,nkn)
+        real area(levdim,nkn)
 
         logical bdebug
         logical bsigma
-	integer k,l,ie,ii
-	integer lmax,n,nlev,nsigma,levmin
+	integer k,l,lmiss,ie,ii
+	integer lmax,lmin,lmink,n,nlev,nsigma,levmin
 	real hfirst,hlast,h,htot,z,zmed,hm
 	real hacu,hlevel,hsigma,hsig
 	real hmin
@@ -934,6 +991,7 @@ c----------------------------------------------------------------
 c initialize and copy
 c----------------------------------------------------------------
 
+	!cleaning removed layer
 	hdkn = 0.
 	hden = 0.
 
@@ -953,6 +1011,7 @@ c----------------------------------------------------------------
 	  areafv = areael / n
 
 	  lmax = ilhv(ie)
+	  lmin = jlhv(ie)
 	  hm = hev(ie)
 	  zmed = 0.
 
@@ -963,6 +1022,7 @@ c	  -------------------------------------------------------
 	  do ii=1,n
 
 	    k = nen3v(ii,ie)
+	    lmink = jlhkv(k)
 	    htot = hm3v(ii,ie)
 	    z = zenv(ii,ie)
 	    hsig = min(htot,hsigma) + z		!total depth of sigma layers
@@ -977,12 +1037,22 @@ c	  -------------------------------------------------------
 	        h = htot + z
 	        hdkn(1,k) = hdkn(1,k) + areafv * h
 	      else
-	        levmin = nsigma + 1
-	        do l=levmin,lmax-1
+	        levmin = nsigma + lmin
+	        do l=levmin+1,lmax-1
 	          hdkn(l,k) = hdkn(l,k) + areafv * hldv(l)
 	        end do
-	        if( levmin .eq. 1 ) hdkn(1,k) = hdkn(1,k) + areafv * z
-	        hlast = htot - hlv(lmax-1)
+		! for nodes sharing element with different number
+		! of top layers depth definition is ambigous. 
+		! We define it w.r.t to hlv(jlhkv(k)) interface	
+	        if( levmin .eq. lmin .and. levmin .eq. lmink ) then 
+		  hdkn(lmin,k) = hdkn(lmin,k) + areafv * (hlv(lmin) + z)
+		else if ( levmin .eq. lmin .and. levmin .gt. lmink ) then
+		  do lmiss=lmin,lmink-1,-1	
+	            hdkn(lmiss,k) = hdkn(lmiss,k) + areafv * hldv(lmiss)
+		  end do
+		  hdkn(lmink,k) = hdkn(lmink,k) + areafv * (hlv(lmink) + z)
+		end if
+		hlast = htot - hlv(lmax-1)
 		if( hlast .lt. 0. ) goto 77
 	        hdkn(lmax,k) = hdkn(lmax,k) + areafv * hlast
 	      end if
@@ -1024,30 +1094,32 @@ c	  -------------------------------------------------------
 	    if( lmax .eq. 1 ) then
 	      hden(1,ie) = htot + zmed
 	    else
-	      levmin = nsigma + 1
-	      do l=levmin,lmax-1
+	      levmin = nsigma + lmin
+	      do l=levmin+1,lmax-1
 	        hden(l,ie) = hldv(l)
 	      end do
-	      if( levmin .eq. 1 ) hden(1,ie) = hden(1,ie) + zmed
-	      hlast = htot - hlv(lmax-1)
+	      if( levmin .eq. lmin ) then
+	        hden(lmin,ie) = hden(lmin,ie) + hlv(lmin) + zmed
+	      end if
+  	      hlast = htot - hlv(lmax-1)
 	      if( hlast .lt. 0. ) goto 77
 	      hden(lmax,ie) = hlast
 	    end if
 	  end if
 
-	  do l=1,lmax
-	    h = hden(l,ie)
-	    if( h <= hmin ) then
-	      write(6,*) 'error computing layer thickness'
-	      write(6,*) 'no layer depth in element: ',ie,l,lmax
-	      write(6,*) 'depth: ',h,htot,zmed
-	      write(6,*) 'additional information available in fort.666'
-	      call check_set_unit(666)
-	      call check_elem(ie)
-	      call check_nodes_in_elem(ie)
-	      stop 'error stop setdepth: no layer in element'
-	    end if
-	  end do
+          do l=lmin,lmax
+            h = hden(l,ie)
+            if( h <= hmin ) then
+              write(6,*) 'error computing layer thickness'
+              write(6,*) 'no layer depth in element: ',ie,l,lmax
+              write(6,*) 'depth: ',h,htot,zmed
+              write(6,*) 'additional information available in fort.666'
+              call check_set_unit(666)
+              call check_elem(ie)
+              call check_nodes_in_elem(ie)
+              stop 'error stop setdepth: no layer in element'
+            end if
+          end do
 
 	end do
 
@@ -1060,9 +1132,10 @@ c----------------------------------------------------------------
 c compute depth at nodes
 c----------------------------------------------------------------
 
-	levmin = nsigma + 1
 	do k=1,nkn_inner
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
+          levmin = nsigma + lmin  
 	  do l=levmin,lmax
 	    areafv = area(l,k)
 	    if( areafv .gt. 0. ) then
@@ -1071,23 +1144,23 @@ c----------------------------------------------------------------
 	      exit
 	    end if
 	  end do
-	  do l=1,lmax
-	    h = hdkn(l,k)
-	    if( h <= hmin ) then
-	      write(6,*) 'error computing layer thickness'
-	      write(6,*) 'no layer depth in node: ',k,l,lmax
-	      write(6,*) 'depth: ',h
-	      write(6,*) 'nlv,lmax: ',nlv,lmax
-	      write(6,*) 'nsigma: ',nsigma
-	      write(6,*) 'hlv: ',hlv
-	      write(6,*) 'hldv: ',hldv
-	      write(6,*) 'additional information available in fort.666'
-	      call check_set_unit(666)
-	      call check_node(k)
-	      call check_elems_around_node(k)
-	      stop 'error stop setdepth: no layer in node'
-	    end if
-	  end do
+          do l=lmin,lmax
+            h = hdkn(l,k)
+            if( h <= hmin ) then
+              write(6,*) 'error computing layer thickness'
+              write(6,*) 'no layer depth in node: ',k,l,lmax
+              write(6,*) 'depth: ',h
+              write(6,*) 'nlv,lmax: ',nlv,lmax
+              write(6,*) 'nsigma: ',nsigma
+              write(6,*) 'hlv: ',hlv
+              write(6,*) 'hldv: ',hldv
+              write(6,*) 'additional information available in fort.666'
+              call check_set_unit(666)
+              call check_node(k)
+              call check_elems_around_node(k)
+              stop 'error stop setdepth: no layer in node'
+            end if
+          end do
 	end do
 
 c----------------------------------------------------------------

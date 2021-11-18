@@ -610,7 +610,7 @@ c stability is computed for dt == 1
 	real rindex		   !stability index (return)
 	real astab(nlvdi,nel)      !stability matrix (return)
 
-	integer ie,l,ii,k,lmax,iweg
+	integer ie,l,ii,k,lmax,lmin,iweg
 	real cc,cmax
 	real ut,vt
 	real area,h,vol
@@ -622,8 +622,9 @@ c stability is computed for dt == 1
 	do ie=1,nel
 	  area = 12. * ev(10,ie)
 	  lmax = ilhv(ie)
+	  lmin = jlhv(ie)
 	  iweg = iwegv(ie)
-	  do l=1,lmax
+	  do l=lmin,lmax
 
             h = hdenv(l,ie)
 	    vol = area * h

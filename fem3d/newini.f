@@ -844,6 +844,76 @@ c local
 
 c*****************************************************************
 
+	subroutine set_jlhv
+
+c sets jlhv and jlhvo - only needs zenv and hlv
+c jlhv(ie)	layer index of the upper existing layer updated 
+c jlhvo(ie)	layer index of the upper existing layer before update	
+c e.g. jlhv(ie)=2 means first layer has been removed for element ie
+
+	use levels
+	use basin
+	use mod_hydro
+
+	implicit none
+
+c local
+	logical bsigma
+	integer ie,ii,l,lmin,nsigma
+	real hsigma
+
+	real zmin
+
+	lmin=1000
+
+	call get_sigma(nsigma,hsigma)
+	bsigma = nsigma .gt. 0
+
+	jlhov=jlhv    		! swap for saving old index
+				! first timestep: jlhov=1 even if some
+				! layer are removed but it is unsed 	
+	do ie=1,nel
+
+	  zmin = 1000000.
+	  do ii=1,3
+	    zmin = min(zmin, zenv(ii,ie))
+	  end do
+
+	  if( bsigma ) then	! sigma levels always start from 1
+	    l = 1
+	  else
+	    do l=1,nlv
+	      if(-hlv(l).le.zmin) exit
+	    end do
+c	    if( l .gt. nlv ) goto 99
+	  end if
+
+	  jlhv(ie)=l
+	  !if (l .ne. 1) then ! Luca
+	  !  write(*,*) 'Found a level jlhv = ', ie, jlhv(ie)
+	  !end if 
+	  lmin = min(lmin,l)
+
+	end do
+
+c	nlv = lmax
+	!Luca
+c	write(6,*) 'finished setting jlhv and nlv'
+c	write(6,*) 'nsigma,hsigma: ',nsigma,hsigma
+c	write(6,*) 'nlv,lmin: ',nlv,lmin
+c	write(6,'(5g14.6)') (hlv(l),l=1,nlv)
+
+	return
+c   99	continue
+c	write(6,*) ie,l,nlv,h,hlv(nlv)
+c	write(6,*) 'maximum basin depth: ',hmax
+c	write(6,*) 'maximum layer depth: ',hlv(nlv)
+c	write(6,'(5g14.6)') (hlv(l),l=1,nlv)
+c	stop 'error stop set_jlhv: not enough layers'
+	end	
+
+c*****************************************************************
+
 	subroutine set_ilhkv
 
 c set ilhkv array - only needs ilhv
@@ -878,6 +948,41 @@ c set ilhkv array - only needs ilhv
 	end
 
 c*****************************************************************
+
+        subroutine set_jlhkv
+
+c set jlhkv array - only needs jlhv
+
+        use levels
+        use basin
+        use shympi
+
+        implicit none
+
+        integer ie,ii,k,l
+
+        do k=1,nkn
+          jlhkv(k)=1000
+        end do
+
+        do ie=1,nel
+          l=jlhv(ie)
+          do ii=1,3
+            k=nen3v(ii,ie)
+            if(l.lt.jlhkv(k)) jlhkv(k)=l
+          end do
+        end do
+
+        if( shympi_partition_on_elements() ) then
+          !call shympi_comment('shympi_elem: exchange ilhkv - max')
+          call shympi_exchange_2d_nodes_max(jlhkv)
+        else
+          call shympi_exchange_2d_node(jlhkv)
+        end if
+
+        end
+
+c*****************************************************************	
 
 	subroutine set_ilmkv
 
