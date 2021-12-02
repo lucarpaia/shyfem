@@ -384,7 +384,7 @@ c mode = 2		eliminate elements with r>rindex
         real dt			!time step to be used
         real rindex		!stability index (return)
 
-	integer ie,l,lmax,iweg,ilin,ibarcl
+	integer ie,l,lmax,lmin,iweg,ilin,ibarcl
         real rkpar,azpar,ahpar,rlin
 	real dindex,aindex,tindex,sindex,gindex
 	real rmax
@@ -434,8 +434,9 @@ c mode = 2		eliminate elements with r>rindex
 	tindex = 0.
 	do ie=1,nel
 	  lmax = ilhv(ie)
+	  lmin = jlhv(ie)
 	  iweg = 0
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    sindex = sauxe(l,ie)
 	    if( sindex .ge. rmax ) iweg = 1
 	    tindex = max(tindex,sindex)

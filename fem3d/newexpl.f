@@ -354,7 +354,7 @@ c sets arrays momentx/yv
 
         implicit none
 
-        integer ii,ie,k,l,lmax
+        integer ii,ie,k,l,lmiss,lmin,lmax
         real b,c
         real ut,vt
         real uc,vc
@@ -362,7 +362,7 @@ c sets arrays momentx/yv
         real um,vm
         real f,h
 	real xadv,yadv
-	real area,vol
+	real area,vol,htot,wei
 
 	real saux(nlvdi,nkn)
 
@@ -380,7 +380,8 @@ c---------------------------------------------------------------
 
 	do ie=1,nel
 	  lmax = ilhv(ie)
-	  do l=1,lmax
+	  lmin = jlhv(ie)
+	  do l=lmin,lmax
             h = hdeov(l,ie)
 	    ut = utlov(l,ie)
 	    vt = vtlov(l,ie)
@@ -390,9 +391,24 @@ c---------------------------------------------------------------
                 c = ev(6+ii,ie)
                 f = ut * b + vt * c	! f>0 => flux into node
                 if( f .gt. 0. ) then
-		  saux(l,k) = saux(l,k) + f
-		  momentxv(l,k) = momentxv(l,k) + f * ut
-		  momentyv(l,k) = momentyv(l,k) + f * vt
+                  !case of an element with less layers then
+                  !the other elements surrouding node k 
+                  if (l.eq.lmin .and. lmin.ge.jlhkv(k)) then
+                    htot = 0.0
+                    do lmiss=lmin,jlhkv(k),-1
+                      htot = htot + hdeov(l,ie)
+                    end do
+                    do lmiss=lmin,jlhkv(k),-1
+                      saux(lmiss,k) = saux(l,k) + f
+		      wei = hdeov(lmiss,ie)/htot
+                      momentxv(lmiss,k) = momentxv(lmiss,k) +f*ut*wei
+                      momentyv(lmiss,k) = momentyv(lmiss,k) +f*vt*wei
+                    end do
+	    	  else			
+		    saux(l,k) = saux(l,k) + f
+		    momentxv(l,k) = momentxv(l,k) + f * ut
+		    momentyv(l,k) = momentyv(l,k) + f * vt
+	          endif
                 end if
 	    end do
           end do
@@ -404,7 +420,8 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=1,lmax
+          lmin = jlhkv(k)	  
+	  do l=lmin,lmax
             h = hdkov(l,k)
 	    if( saux(l,k) .gt. 0 ) then		!flux into node
 	      momentxv(l,k) = momentxv(l,k) / saux(l,k)
@@ -443,7 +460,7 @@ c******************************************************************
 	real wtop,wbot
 
         integer ihwadv  	! vertical advection for momentum
-        integer ii,ie,k,l,lmax
+        integer ii,ie,k,l,lmiss,lmax,lmin
         real b,c
         real ut,vt
         real uc,vc
@@ -477,12 +494,13 @@ c---------------------------------------------------------------
 	do ie=1,nel
           wtop = 0.0
 	  lmax = ilhv(ie)
+          lmin = jlhv(ie)
 
           rdist = rdistv(ie)              !use terms (distance from OB)
           rcomp = rcomputev(ie)           !use terms (custom elements)
           ruseterm = min(rcomp,rdist)     !use terms (both)
 
-	  do l=1,lmax
+	  do l=lmin,lmax
 
 c	    ---------------------------------------------------------------
 c	    horizontal advection
@@ -504,12 +522,26 @@ c	    ---------------------------------------------------------------
                 b = ev(3+ii,ie)
                 c = ev(6+ii,ie)
 		wbot = wbot + wlov(l,k)
-                up = momentxv(l,k) / h		!NEW
-                vp = momentyv(l,k) / h
                 f = ut * b + vt * c
                 if( f .lt. 0. ) then	!flux out of node => into element
-                  xadv = xadv + f * ( up - uc )
-                  yadv = yadv + f * ( vp - vc )
+		  !for a vertex sharing elements with different number of layers: 
+		  !total flux as sum of weighted upwind fluxes
+                  if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+		    xadv = xadv - f * ( uc )
+		    yadv = yadv - f * ( vc )
+                    do lmiss=lmin,jlhkv(k),-1
+                      up = momentxv(lmiss,k) / h          !NEW
+                      vp = momentyv(lmiss,k) / h	    
+                      xadv = xadv + f * ( up )
+                      yadv = yadv + f * ( vp )
+                    end do
+		  !upwind flux
+                  else
+                    up = momentxv(l,k) / h          !NEW
+                    vp = momentyv(l,k) / h			  
+                    xadv = xadv + f * ( up - uc )
+                    yadv = yadv + f * ( vp - vc )
+	    	  end if
                 end if
             end do
 	    
