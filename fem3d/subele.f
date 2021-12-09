@@ -668,19 +668,22 @@ c sets up area for nodes
 	  flev = jlhv(ie)
 	  do ii=1,n
 	    k = nen3v(ii,ie)
-	    !if( flev .eq. jlhkv(k) ) then 
-	    !  areakv(flev,k) = areakv(flev,k) + areafv
-	    !end if	
 	    do l=flev,nlev
 	      areakv(l,k) = areakv(l,k) + areafv
 	    end do
 	    !case of an element with less layers then
             !the other elements sourrouding node k
-            if (l.eq.flev .and. flev.gt.jlhkv(k)) then
+            if (flev.gt.jlhkv(k)) then
               do lmiss=flev-1,jlhkv(k),-1
-	        areakv(l,k) = areakv(l,k) + areafv
+	        areakv(lmiss,k) = areakv(lmiss,k) + areafv
 	      end do
       	    end if
+	  end do
+	end do
+        !area for removed layers
+        do k=1,nkn
+	  do lmiss=jlhkv(k)-1,jlhkov(k),-1
+	    areakv(lmiss,k) = areakv(jlhkv(k),k)
 	  end do
 	end do
 
@@ -929,7 +932,7 @@ c layer is removed/inserted
           lminov = jlhov(ie)
 
 	  if (lminnv > lminov) then 	 !top layer element removed
-	    do l=lminnv-1,lminov,-1	 !loop over removed layers 	
+	    do l=lminnv-1,lminov,-1	 !loop over removed layers 
 	      utlnv(lminnv,ie) = utlnv(lminnv,ie) + utlnv(l,ie)
               vtlnv(lminnv,ie) = vtlnv(lminnv,ie) + vtlnv(l,ie)	      
       	      utlnv(l,ie) = 0.0		 !cleaning removed layer	   
@@ -1044,10 +1047,10 @@ c	  -------------------------------------------------------
 		! for nodes sharing element with different number
 		! of top layers depth definition is ambigous. 
 		! We define it w.r.t to hlv(jlhkv(k)) interface	
-	        if( levmin .eq. lmin .and. levmin .eq. lmink ) then 
+	        if( levmin .eq. lmin .and. levmin .eq. lmink ) then
 		  hdkn(lmin,k) = hdkn(lmin,k) + areafv * (hlv(lmin) + z)
 		else if ( levmin .eq. lmin .and. levmin .gt. lmink ) then
-		  do lmiss=lmin,lmink-1,-1	
+		  do lmiss=lmin,lmink+1,-1
 	            hdkn(lmiss,k) = hdkn(lmiss,k) + areafv * hldv(lmiss)
 		  end do
 		  hdkn(lmink,k) = hdkn(lmink,k) + areafv * (hlv(lmink) + z)

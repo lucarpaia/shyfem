@@ -103,7 +103,10 @@ c transforms transports to velocities
 
 	implicit none
 
-	integer ie
+	integer ie,l
+	real hdenv2reg,CU
+
+	CU = 0.01
 
 	if( .not. mod_layer_thickness_is_initialized() ) then
 	  write(6,*) 'layer thickness is not initialized'
@@ -116,6 +119,18 @@ c transforms transports to velocities
 	  ulnv = utlnv / hdenv
 	  vlnv = vtlnv / hdenv
 	end where
+c	do ie=1,nel
+c	  do l=jlhv(ie),ilhv(ie)
+c	  ulnv(l,ie) = utlnv(l,ie) / hdenv(l,ie)
+c          vlnv(l,ie) = vtlnv(l,ie) / hdenv(l,ie)	  
+c	  hdenv2reg = sqrt( hdenv(l,ie)**4 +max(hdenv(l,ie)**4,CU**4) )
+c          ulnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*utlnv(l,ie)/ hdenv2reg
+c          vlnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*vtlnv(l,ie)/ hdenv2reg
+c	  end do
+c	end do  
+c	ulnv = sqrt(2.0)*hdenv*utlnv/sqrt( hdenv**4 +max(hdenv**4,CU**4) )
+c	vlnv = sqrt(2.0)*hdenv*vtlnv/sqrt( hdenv**4 +max(hdenv**4,CU**4) )
+c(np.sqrt(2.)* h * momentum) / ( np.sqrt(h*h*h*h+np.maximum(h*h*h*h,CU*CU*CU*CU)) )
 
 	end
 

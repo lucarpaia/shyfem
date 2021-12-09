@@ -951,7 +951,7 @@ c*****************************************************************
 
         subroutine set_jlhkv
 
-c set jlhkv array - only needs jlhv
+c set jlhkv and jlhkov array - only needs jlhv
 
         use levels
         use basin
@@ -960,6 +960,8 @@ c set jlhkv array - only needs jlhv
         implicit none
 
         integer ie,ii,k,l
+
+        jlhkov=jlhkv            ! swap for saving old index
 
         do k=1,nkn
           jlhkv(k)=1000

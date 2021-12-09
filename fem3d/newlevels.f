@@ -59,6 +59,7 @@
         integer, save, allocatable :: jlhv(:)
         integer, save, allocatable :: jlhov(:)	
         integer, save, allocatable :: jlhkv(:)
+        integer, save, allocatable :: jlhkov(:)
 
         real, save, allocatable :: hlv(:)
         real, save, allocatable :: hldv(:)
@@ -99,8 +100,9 @@
 	  deallocate(ilhkv)
 	  deallocate(ilmkv)
           deallocate(jlhv)
-          deallocate(jlhkv)  	 
-	  deallocate(jlhov) 
+	  deallocate(jlhov)
+          deallocate(jlhkv)	  
+          deallocate(jlhkov)	  
 	end if
 
 	nkn_levels = nkn
@@ -115,6 +117,7 @@
         allocate(jlhv(nel))
         allocate(jlhov(nel))	
         allocate(jlhkv(nkn))
+        allocate(jlhkov(nkn))
 
 	ilhv = 1
 	ilmv = 1
@@ -123,6 +126,7 @@
 	jlhv = 1
 	jlhov = 1
         jlhkv = 1
+	jlhkov = 1
 
 	end subroutine levels_init_2d
 

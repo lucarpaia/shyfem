@@ -1600,6 +1600,7 @@ c vv            aux array for area
 	use mod_bound_dynamic
 	use mod_hydro_vel
 	use mod_hydro
+        use mod_layer_thickness
 	use evgeom
 	use levels
 	use basin
@@ -1611,7 +1612,7 @@ c arguments
 	real dzeta(nkn)
 c local
 	logical debug
-	integer k,ie,ii,kk,l,lmax,lmin
+	integer k,ie,ii,kk,l,lmax,lmin,lmiss
 	integer ilevel,jlevel
         integer ibc,ibtyp
 	real aj,wbot,wdiv,ff,atop,abot,wfold
@@ -1626,6 +1627,7 @@ c statement functions
 
 	logical is_zeta_bound
 	real volnode
+	real htot,weight
 
 	!logical isein
         !isein(ie) = iwegv(ie).eq.0
@@ -1657,21 +1659,67 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	 !if( isein(ie) ) then		!FIXME
 	  aj=4.*ev(10,ie)		!area of triangle / 3
 	  ilevel = ilhv(ie)
-	  jlevel = jlhv(ie)
+	  !configuration may be changed between
+	  !time^{n+1} and time^{n} due to element insertion/removal:
+	  !we treat separately time level t^{n+1} and t^{n}
+          jlevel = jlhv(ie) 		! t^{n+1}
 	  do l=jlevel,ilevel
 	    do ii=1,3
 		kk=nen3v(ii,ie)
 		b = ev(ii+3,ie)
 		c = ev(ii+6,ie)
-		ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
-		ffo = utlov(l,ie)*b + vtlov(l,ie)*c
-		ff = ffn * az + ffo * azt
-		!ff = ffn
-		vf(l,kk) = vf(l,kk) + 3. * aj * ff
-		va(l,kk) = va(l,kk) + aj
+                !case of an element with less layers then
+                !the other elements surrouding node kk
+		if (l.eq.jlevel .and. jlevel.gt.jlhkv(kk)) then
+		  htot = 0.0
+                  do lmiss=jlevel,jlhkv(kk),-1
+                    htot = htot + hdknv(lmiss,kk)
+                  end do
+		  do lmiss=jlevel,jlhkv(kk),-1
+		    weight = hdknv(lmiss,kk)/htot
+		    ffn = (utlnv(l,ie)*b + vtlnv(l,ie)*c) * weight
+                    ff = ffn * az
+                    vf(lmiss,kk) = vf(lmiss,kk) + 3. * aj * ff
+                    va(lmiss,kk) = va(lmiss,kk) + aj
+		  end do
+		!general case for inferior layers
+		!or no missing layers
+		else
+		  ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
+                  ff = ffn * az
+                  vf(l,kk) = vf(l,kk) + 3. * aj * ff
+                  va(l,kk) = va(l,kk) + aj
+		end if
 	    end do
 	  end do
-	 !end if
+          jlevel = jlhov(ie)             ! t^{n}
+          do l=jlevel,ilevel
+            do ii=1,3
+                kk=nen3v(ii,ie)
+                b = ev(ii+3,ie)
+                c = ev(ii+6,ie)
+                !case of an element with less layers then
+                !the other elements surrouding node kk
+                if (l.eq.jlevel .and. jlevel.gt.jlhkov(kk)) then
+                  htot = 0.0
+                  do lmiss=jlevel,jlhkov(kk),-1
+                    htot = htot + hdkov(lmiss,kk)
+		  end do
+                  do lmiss=jlevel,jlhkov(kk),-1
+                    weight = hdkov(lmiss,kk)/htot
+                    ffo = (utlov(l,ie)*b + vtlov(l,ie)*c) * weight
+                    ff = ffo * azt
+                    vf(lmiss,kk) = vf(lmiss,kk) + 3. * aj * ff
+                  end do
+                !general case for inferior layers 
+                !or no missing layers 
+                else
+                  ffo = utlov(l,ie)*b + vtlov(l,ie)*c
+                  ff = ffo * azt
+                  vf(l,kk) = vf(l,kk) + 3. * aj * ff
+                end if
+            end do
+	  end do
 	end do
 
 	if( shympi_partition_on_elements() ) then
@@ -1706,9 +1754,18 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    dvdt = (voln-volo)/dt
 	    q = mfluxv(l,k)
 	    wdiv = vf(l,k) + q
+	    !configuration may be changed:
+	    !removed layers are remapped on the new grid
+	    if (l.eq.lmin .and. lmin.gt.jlhkov(k)) then
+	      do lmiss=lmin-1,jlhkov(k),-1
+	        dvdt = dvdt - volnode(lmiss,k,-1)/dt
+	        wdiv = wdiv + vf(lmiss,k)
+	      end do
+	    end if
 	    !wfold = azt * (atop*wlov(l-1,k)-abot*wlov(l,k))
 	    !wlnv(l-1,k) = wlnv(l,k) + (wdiv-dvdt+wfold)/az
 	    wlnv(l-1,k) = wlnv(l,k) + wdiv - dvdt
+            dz = dt * wlnv(lmin-1,k) / va(lmin,k)
 	    abot = atop
 	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
 	  end do

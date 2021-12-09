@@ -396,11 +396,11 @@ c---------------------------------------------------------------
                   if (l.eq.lmin .and. lmin.ge.jlhkv(k)) then
                     htot = 0.0
                     do lmiss=lmin,jlhkv(k),-1
-                      htot = htot + hdeov(l,ie)
+                      htot = htot + hdkov(l,k)
                     end do
                     do lmiss=lmin,jlhkv(k),-1
                       saux(lmiss,k) = saux(l,k) + f
-		      wei = hdeov(lmiss,ie)/htot
+		      wei = hdkov(lmiss,k)/htot
                       momentxv(lmiss,k) = momentxv(lmiss,k) +f*ut*wei
                       momentyv(lmiss,k) = momentyv(lmiss,k) +f*vt*wei
                     end do
@@ -472,6 +472,7 @@ c******************************************************************
         real getpar
         real wlay,dzbb,dz,dztt,ubot,utop,vbot,vtop
 	real rdist,rcomp,ruseterm
+	real htot
 
 	!write(6,*) 'set_advective called...'
 
@@ -524,29 +525,29 @@ c	    ---------------------------------------------------------------
 		wbot = wbot + wlov(l,k)
                 f = ut * b + vt * c
                 if( f .lt. 0. ) then	!flux out of node => into element
-		  !for a vertex sharing elements with different number of layers: 
-		  !total flux as sum of weighted upwind fluxes
+		  !for an element with less layers then other elements
+		  !surrounding node k: mean nodal velocity from layer momentum
                   if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
-		    xadv = xadv - f * ( uc )
-		    yadv = yadv - f * ( vc )
+		    htot = 0.0
+		    do lmiss=lmin,jlhkv(k),-1
+     		      htot = htot + hdkov(l,k) 
+		    end do 
+		    up = 0.; vp = 0.
                     do lmiss=lmin,jlhkv(k),-1
-                      up = momentxv(lmiss,k) / h          !NEW
-                      vp = momentyv(lmiss,k) / h	    
-                      xadv = xadv + f * ( up )
-                      yadv = yadv + f * ( vp )
+                      up = up + momentxv(lmiss,k) / htot         !NEW
+                      vp = vp + momentyv(lmiss,k) / htot
                     end do
-		  !upwind flux
                   else
                     up = momentxv(l,k) / h          !NEW
-                    vp = momentyv(l,k) / h			  
-                    xadv = xadv + f * ( up - uc )
-                    yadv = yadv + f * ( vp - vc )
+                    vp = momentyv(l,k) / h 
 	    	  end if
+		  xadv = xadv + f * ( up - uc )
+                  yadv = yadv + f * ( vp - vc )
                 end if
             end do
 	    
 	    zxadv = 0.
-	    zyadv = 0. 
+	    zyadv = 0.
 	   
 c	    ---------------------------------------------------------------
 c	    vertical advection
