@@ -401,12 +401,11 @@ c-----------------------------------------------------------------
 	call hydro_transports_final	!final transports (also barotropic)
 
 c-----------------------------------------------------------------
-c end of soulution for hydrodynamic variables
+c end of solution for hydrodynamic variables in dry areas
 c-----------------------------------------------------------------
 
         call setzev			!copy znv to zenv
         call setuvd			!set velocities in dry areas
-	call baro2l 			!sets transports in dry areas
 
 c-----------------------------------------------------------------
 c depth computation + removal/insertion (r/i) of top layers
@@ -415,9 +414,10 @@ c-----------------------------------------------------------------
         call set_jlhv           	!set top layer index (elemental)
 	call set_jlhkv          	!set top layer index (nodal)
 
-	call set_area
+	call set_area			!always call before make_new_depth
 	call make_new_depth		!set new layers depth
-        call make_new_transport		!set new transport after r/i 	
+        call make_new_transport		!set new transports after r/i 	
+        call baro2l                     !set new transports in dry areas
 
 	call check_volume		!checks for negative volume 
         call arper
@@ -1629,8 +1629,9 @@ c statement functions
 	real volnode
 	real htot,weight
 
-	!logical isein
-        !isein(ie) = iwegv(ie).eq.0
+	logical isein,iskin
+        isein(ie) = iwegv(ie).eq.0
+        iskin(k)  = inodv(k) .eq.0 .or. inodv(k) .eq.-1
 
 c 2d -> nothing to be done
 
@@ -1656,7 +1657,10 @@ c f(ii) > 0 ==> flux into node ii
 c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 
 	do ie=1,nel
-	 !if( isein(ie) ) then		!FIXME
+	  !vertical velocity is computed 
+	  !only from the wet side
+	  if( isein(ie) ) then
+	  !
 	  aj=4.*ev(10,ie)		!area of triangle / 3
 	  ilevel = ilhv(ie)
 	  !configuration may be changed between
@@ -1668,14 +1672,13 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 		kk=nen3v(ii,ie)
 		b = ev(ii+3,ie)
 		c = ev(ii+6,ie)
-                !case of an element with less layers then
-                !the other elements surrouding node kk
-		if (l.eq.jlevel .and. jlevel.gt.jlhkv(kk)) then
+                !element with missing top layers
+		if (l.eq.jlevel .and. jlevel.gt.jalhkv(kk)) then
 		  htot = 0.0
-                  do lmiss=jlevel,jlhkv(kk),-1
+                  do lmiss=jlevel,jalhkv(kk),-1
                     htot = htot + hdknv(lmiss,kk)
                   end do
-		  do lmiss=jlevel,jlhkv(kk),-1
+		  do lmiss=jlevel,jalhkv(kk),-1
 		    weight = hdknv(lmiss,kk)/htot
 		    ffn = (utlnv(l,ie)*b + vtlnv(l,ie)*c) * weight
                     ff = ffn * az
@@ -1700,12 +1703,12 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
                 c = ev(ii+6,ie)
                 !case of an element with less layers then
                 !the other elements surrouding node kk
-                if (l.eq.jlevel .and. jlevel.gt.jlhkov(kk)) then
+                if (l.eq.jlevel .and. jlevel.gt.jalhkov(kk)) then
                   htot = 0.0
-                  do lmiss=jlevel,jlhkov(kk),-1
+                  do lmiss=jlevel,jalhkov(kk),-1
                     htot = htot + hdkov(lmiss,kk)
 		  end do
-                  do lmiss=jlevel,jlhkov(kk),-1
+                  do lmiss=jlevel,jalhkov(kk),-1
                     weight = hdkov(lmiss,kk)/htot
                     ffo = (utlov(l,ie)*b + vtlov(l,ie)*c) * weight
                     ff = ffo * azt
@@ -1720,6 +1723,9 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
                 end if
             end do
 	  end do
+	  !
+	  end if 
+	  !end exluded areas  
 	end do
 
 	if( shympi_partition_on_elements() ) then
@@ -1742,8 +1748,12 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	dzmax = 0.
 
 	do k=1,nkn
+          !vertical velocity is computed
+          !only at wet and wet/dry nodes
+          if( iskin(k) ) then       
+	  !  
 	  lmax = ilhkv(k)
-	  lmin = jlhkv(k)
+	  lmin = jalhkv(k)
 	  wlnv(lmax,k) = 0.
 	  debug = k .eq. 0
 	  abot = 0.
@@ -1756,8 +1766,8 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    wdiv = vf(l,k) + q
 	    !configuration may be changed:
 	    !removed layers are remapped on the new grid
-	    if (l.eq.lmin .and. lmin.gt.jlhkov(k)) then
-	      do lmiss=lmin-1,jlhkov(k),-1
+	    if (l.eq.lmin .and. lmin.gt.jalhkov(k)) then	    
+	      do lmiss=lmin-1,jalhkov(k),-1
 	        dvdt = dvdt - volnode(lmiss,k,-1)/dt
 	        wdiv = wdiv + vf(lmiss,k)
 	      end do
@@ -1765,7 +1775,6 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    !wfold = azt * (atop*wlov(l-1,k)-abot*wlov(l,k))
 	    !wlnv(l-1,k) = wlnv(l,k) + (wdiv-dvdt+wfold)/az
 	    wlnv(l-1,k) = wlnv(l,k) + wdiv - dvdt
-            dz = dt * wlnv(lmin-1,k) / va(lmin,k)
 	    abot = atop
 	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
 	  end do
@@ -1773,13 +1782,17 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	  dzmax = max(dzmax,abs(dz))
 	  wlnv(lmin-1,k) = 0.	! ensure no flux across surface - is very small
 	  dzeta(k) = dz
+	  !	
+	  end if
+	  !end exluded areas
 	end do
 
-	!write(6,*) 'hydro_vertical: dzmax = ',dzmax
-
 	do k=1,nkn
+          !vertical velocity is computed
+          !only at wet and wet/dry nodes	  
+	  if( iskin(k) ) then
 	  lmax = ilhkv(k)
-	  lmin = jlhkv(k)
+	  lmin = jalhkv(k)
 	  debug = k .eq. 0
 	  do l=lmin+1,lmax
 	    atop = va(l,k)
@@ -1788,6 +1801,7 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	      if( debug ) write(6,*) k,l,atop,wlnv(l-1,k)
 	    end if
 	  end do
+      	  end if
 	end do
 
 c set w to zero at open boundary nodes (new 14.08.1998)

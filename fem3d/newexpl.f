@@ -391,14 +391,13 @@ c---------------------------------------------------------------
                 c = ev(6+ii,ie)
                 f = ut * b + vt * c	! f>0 => flux into node
                 if( f .gt. 0. ) then
-                  !case of an element with less layers then
-                  !the other elements surrouding node k 
-                  if (l.eq.lmin .and. lmin.ge.jlhkv(k)) then
+                  !element with missing top layers			
+                  if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then
                     htot = 0.0
-                    do lmiss=lmin,jlhkv(k),-1
-                      htot = htot + hdkov(l,k)
+                    do lmiss=lmin,jalhkv(k),-1
+                      htot = htot + hdkov(lmiss,k)
                     end do
-                    do lmiss=lmin,jlhkv(k),-1
+                    do lmiss=lmin,jalhkv(k),-1
                       saux(lmiss,k) = saux(l,k) + f
 		      wei = hdkov(lmiss,k)/htot
                       momentxv(lmiss,k) = momentxv(lmiss,k) +f*ut*wei
@@ -525,15 +524,15 @@ c	    ---------------------------------------------------------------
 		wbot = wbot + wlov(l,k)
                 f = ut * b + vt * c
                 if( f .lt. 0. ) then	!flux out of node => into element
-		  !for an element with less layers then other elements
-		  !surrounding node k: mean nodal velocity from layer momentum
-                  if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+		  !for an element with missing top layers
+		  !mean nodal velocity from layer momentum
+                  if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then
 		    htot = 0.0
-		    do lmiss=lmin,jlhkv(k),-1
-     		      htot = htot + hdkov(l,k) 
+		    do lmiss=lmin,jalhkv(k),-1
+     		      htot = htot + hdkov(lmiss,k) 
 		    end do 
 		    up = 0.; vp = 0.
-                    do lmiss=lmin,jlhkv(k),-1
+                    do lmiss=lmin,jalhkv(k),-1
                       up = up + momentxv(lmiss,k) / htot         !NEW
                       vp = vp + momentyv(lmiss,k) / htot
                     end do
@@ -676,6 +675,9 @@ c stability is computed for dt == 1
             end do
 
 	    cc = rlin*r*area*ftot/vol
+	    !Luca: maybe de-singularize velocities
+	    !in case of small h
+	    !if (h<1e-3)  cc=0.
 	    if( iweg .gt. 0 ) cc = 0.	! dry element
 	    astab(l,ie) = cc
 	    cmax = max(cmax,cc)

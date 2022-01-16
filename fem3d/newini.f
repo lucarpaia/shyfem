@@ -859,12 +859,12 @@ c e.g. jlhv(ie)=2 means first layer has been removed for element ie
 
 c local
 	logical bsigma
-	integer ie,ii,l,lmin,nsigma
+	integer ie,ii,l,lmax,nsigma
 	real hsigma
 
 	real zmin
 
-	lmin=1000
+	lmax=0
 
 	call get_sigma(nsigma,hsigma)
 	bsigma = nsigma .gt. 0
@@ -888,19 +888,15 @@ c local
 c	    if( l .gt. nlv ) goto 99
 	  end if
 
-	  jlhv(ie)=l
-	  !if (l .ne. 1) then ! Luca
-	  !  write(*,*) 'Found a level jlhv = ', ie, jlhv(ie)
-	  !end if 
-	  lmin = min(lmin,l)
+	  jlhv(ie)=min(l,ilhv(ie)) !safety min: jlhv>=ilhv
+	  lmax = max(lmax,jlhv(ie))
 
 	end do
 
 c	nlv = lmax
-	!Luca
 c	write(6,*) 'finished setting jlhv and nlv'
 c	write(6,*) 'nsigma,hsigma: ',nsigma,hsigma
-c	write(6,*) 'nlv,lmin: ',nlv,lmin
+c	write(6,*) 'nlv,lmax: ',nlv,lmax
 c	write(6,'(5g14.6)') (hlv(l),l=1,nlv)
 
 	return
@@ -951,35 +947,59 @@ c*****************************************************************
 
         subroutine set_jlhkv
 
-c set jlhkv and jlhkov array - only needs jlhv
+c set jlhkv, jalhkv and jlhkov array - only needs jlhv
 
         use levels
         use basin
         use shympi
+	use mod_hydro
+	use mod_layer_thickness
+        use mod_geom_dynamic
 
         implicit none
 
-        integer ie,ii,k,l
+	logical bsigma
+        integer ie,ii,k,l,nsigma
+        real hsigma
+	logical isein
 
-        jlhkov=jlhkv            ! swap for saving old index
+	isein(ie) = iwegv(ie).eq.0
+
+        call get_sigma(nsigma,hsigma)
+        bsigma = nsigma .gt. 0
+
+        jlhkov=jlhkv              !swap for saving old index
+	jalhkov=jalhkv			
 
         do k=1,nkn
-          jlhkv(k)=1000
+          jlhkv(k)=999
+	  jalhkv(k)=999
         end do
 
         do ie=1,nel
-          l=jlhv(ie)
           do ii=1,3
-            k=nen3v(ii,ie)
-            if(l.lt.jlhkv(k)) jlhkv(k)=l
+	    k=nen3v(ii,ie)
+            if( bsigma ) then     !sigma levels always start from 1
+              l = 1
+            else
+              do l=1,nlv
+                if(-hlv(l).le.zenv(ii,ie)) exit
+              end do
+            end if
+	    !safety min: jlhv>=ilhv
+	    if (l.lt.jlhkv(k)) jlhkv(k)=min(l,ilhkv(k))
+	    if (l.lt.jalhkv(k).and.isein(ie)) jalhkv(k)=min(l,ilhkv(k))
           end do
         end do
 
+	!Luca: check this
         if( shympi_partition_on_elements() ) then
           !call shympi_comment('shympi_elem: exchange ilhkv - max')
           call shympi_exchange_2d_nodes_max(jlhkv)
+	  call shympi_exchange_2d_nodes_max(jalhkv)
         else
           call shympi_exchange_2d_node(jlhkv)
+	  call shympi_exchange_2d_node(jalhkv)
         end if
 
         end

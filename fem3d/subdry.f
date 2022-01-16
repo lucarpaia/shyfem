@@ -654,7 +654,6 @@ c-------------------------------------------------------------
               z = zenv(ii,ie)
 	      if( znv(k) .ne. flag .and. znv(k) .ne. z ) then   !restart
                 ntot = ntot + 1
-                write(6,*) 'n,ie,ii,k,z,znv(k) ',ntot,ie,ii,k,z,znv(k)
                 z=max(z,znv(k))         !using higher value
               end if
 	      znv(k) = z

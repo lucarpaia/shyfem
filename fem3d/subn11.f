@@ -385,7 +385,11 @@ c	-----------------------------------------------------
 
 	call init_z(zconst)	!initializes znv and zenv
 	call setweg(0,iw)	!sets minimum depth
+	call setnod		!sets inodv for make_new_depth
 	call setznv		!adjusts znv
+
+        call set_jlhv           !sets jlhv (elemental) according to zenv
+        call set_jlhkv          !sets jlhkv (nodal)
 
 	call set_area		!initializes area	!bugfix MPI_SET_AREA
 	call make_new_depth	!initializes layer thickness

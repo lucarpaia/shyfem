@@ -104,33 +104,29 @@ c transforms transports to velocities
 	implicit none
 
 	integer ie,l
-	real hdenv2reg,CU
+	real hdenv2reg,getpar,hzmin
 
-	CU = 0.01
+	hzmin=getpar('hzmin')
 
 	if( .not. mod_layer_thickness_is_initialized() ) then
 	  write(6,*) 'layer thickness is not initialized'
 	  stop 'error stop ttov: no layerthickness'
 	end if
 
-	ulnv = 0.
-	vlnv = 0.
-	where( hdenv > 0. )
-	  ulnv = utlnv / hdenv
-	  vlnv = vtlnv / hdenv
-	end where
-c	do ie=1,nel
-c	  do l=jlhv(ie),ilhv(ie)
-c	  ulnv(l,ie) = utlnv(l,ie) / hdenv(l,ie)
-c          vlnv(l,ie) = vtlnv(l,ie) / hdenv(l,ie)	  
-c	  hdenv2reg = sqrt( hdenv(l,ie)**4 +max(hdenv(l,ie)**4,CU**4) )
-c          ulnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*utlnv(l,ie)/ hdenv2reg
-c          vlnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*vtlnv(l,ie)/ hdenv2reg
-c	  end do
-c	end do  
-c	ulnv = sqrt(2.0)*hdenv*utlnv/sqrt( hdenv**4 +max(hdenv**4,CU**4) )
-c	vlnv = sqrt(2.0)*hdenv*vtlnv/sqrt( hdenv**4 +max(hdenv**4,CU**4) )
-c(np.sqrt(2.)* h * momentum) / ( np.sqrt(h*h*h*h+np.maximum(h*h*h*h,CU*CU*CU*CU)) )
+c	ulnv = 0.
+c	vlnv = 0.
+c	where( hdenv > 0. )
+c	  ulnv = utlnv / hdenv
+c	  vlnv = vtlnv / hdenv
+c	end where
+	!Desingularize velocities
+	do ie=1,nel
+	  do l=jlhv(ie),ilhv(ie)
+	  hdenv2reg = sqrt( hdenv(l,ie)**4 +max(hdenv(l,ie)**4,hzmin**4) )
+          ulnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*utlnv(l,ie)/ hdenv2reg
+          vlnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*vtlnv(l,ie)/ hdenv2reg
+	  end do
+	end do  
 
 	end
 
@@ -259,10 +255,9 @@ c baroclinic part
 	      vv(l,k)=vv(l,k)+aj
 	      uprv(l,k)=uprv(l,k)+aj*ulnv(l,ie)
 	      vprv(l,k)=vprv(l,k)+aj*vlnv(l,ie)
-	      !case of an element with less layers then
-	      !the other elements sourrouding node k
-	      if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
-		do lmiss=lmin-1,jlhkv(k),-1   
+	      !case of an element with missing top less layers
+	      if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
+		do lmiss=lmin-1,jalhkv(k),-1   
 	          uprv(lmiss,k)=uprv(lmiss,k)+aj*ulnv(lmin,ie)
                   vv(lmiss,k)=vv(lmiss,k)+aj    		  
 		end do
@@ -324,14 +319,14 @@ c
 	    v=0.
 	    do ii=1,3
 	      k=nen3v(ii,ie)
-              !case of node k surrounded by elements with different nb
-	      !of layers: averages with 1 point quadrature in the vertex
-              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+              !case of element with missing top layers
+	      !averages with 1 point quadrature in the vertex
+              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
 		htot = 0.0
-            	do lmiss=lmin,jlhkv(k),-1
+            	do lmiss=lmin,jalhkv(k),-1
                   htot = htot + hdknv(lmiss,k)
             	end do      
-                do lmiss=lmin,jlhkv(k),-1
+                do lmiss=lmin,jalhkv(k),-1
                   u=u+uprv(lmiss,k) * hdknv(lmiss,k)/htot
                   v=v+vprv(lmiss,k) * hdknv(lmiss,k)/htot
                 end do
@@ -396,7 +391,7 @@ c*****************************************************************
 
 c checks for negative volume (depth)
 c
-c only first layer has to be checked
+c only first active layer has to be checked
 
 	use mod_layer_thickness
 	use mod_hydro
@@ -421,7 +416,7 @@ c only first layer has to be checked
 	if( .not. bsigma ) then		!not sure we need this - FIXME
 	 do k=1,nkn
 	  h = hdknv(jlhkv(k),k)
-	  if( h .le. 0. ) then
+	  if( h .lt. 0. ) then
 	    z = znv(k)
 	    ke = ipext(k)
 	    write(6,*) 'negative depth in node (layer 1): '
@@ -468,6 +463,7 @@ c distribute barotropic velocities onto layers (only in dry elements)
 	use mod_geom_dynamic
 	use mod_hydro_baro
 	use mod_hydro_vel
+	use mod_layer_thickness
 	use mod_hydro
 	use levels
 	use basin
@@ -476,8 +472,8 @@ c distribute barotropic velocities onto layers (only in dry elements)
 
 	logical bsigma
 	integer nsigma
-	integer ie,ilevel,ii,l
-	real hsigma
+	integer ie,ilevel,jlevel,l
+	real hsigma,weight,htot
 c functions
         integer ieext
 
@@ -489,20 +485,19 @@ c functions
 	do ie=1,nel
 	  if( iwegv(ie) .gt. 0 ) then	!dry
 	    ilevel=ilhv(ie)
-	    if( ilevel .gt. 1 ) then
-		write(6,*) 'drying in more than one layer'
-		write(6,*) ie,ieext(ie),ilevel
-		do ii=1,3
-		  write(6,*) zeov(ii,ie),zenv(ii,ie),hm3v(ii,ie)
-		end do
-                do l=1,ilevel
-                  write(6,*) utlnv(l,ie),vtlnv(l,ie)
-                end do
-                write(6,*) unv(ie),vnv(ie)
-		stop 'error stop baro2l: drying in more than one layer'
-	    end if
-	    utlnv(1,ie) = unv(ie)
-	    vtlnv(1,ie) = vnv(ie)
+	    jlevel=jlhv(ie)
+	    !wettying with more then one layer
+	    !allowed: jlevel.ne.ilevel case
+	    !we put a uniform velocity across layers
+	    htot = 0.0
+            do l=jlevel,ilevel
+	      htot = htot + hdenv(l,ie)  
+	    end do
+	    do l=jlevel,ilevel		
+	      weight = hdenv(l,ie)/htot
+	      utlnv(l,ie) = unv(ie) * weight
+	      vtlnv(l,ie) = vnv(ie) * weight
+	    end do
 	  end if
 	end do
 
@@ -731,10 +726,9 @@ c-----------------------------------------------------------
               k = nen3v(ii,ie)
               nov(l,k) = nov(l,k) + area*value
               aux(l,k) = aux(l,k) + area
-              !case of an element with less layers then
-              !the other elements sourrouding node k
-              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
-                do lmiss=lmin-1,jlhkv(k),-1
+              !case of an element missing top layers
+              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then
+                do lmiss=lmin-1,jalhkv(k),-1
                   nov(lmiss,k) = nov(lmiss,k) + area*value
                   aux(lmiss,k) = aux(lmiss,k) + area
                 end do
@@ -810,10 +804,9 @@ c-----------------------------------------------------------
 	      else
                 nov(l,k) = min(nov(l,k),value)
 	      end if
-              !case of an element with less layers then
-              !the other elements sourrouding node k
-              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
-                do lmiss=lmin-1,jlhkv(k),-1
+              !case of an element with missing top layers
+              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
+                do lmiss=lmin-1,jalhkv(k),-1
                   if( mode .eq. 1 ) then
                     nov(lmiss,k) = max(nov(lmiss,k),value)
                   else
@@ -906,14 +899,14 @@ c-----------------------------------------------------------
             do ii=1,3
               k = nen3v(ii,ie)
               value = nov(l,k)
-	      !case of node k surrounded by elements with different nb
-              !of layers: averages with 1 point quadrature in the vertex
-              if (l.eq.lmin .and. lmin.gt.jlhkv(k)) then
+	      !case of elements with missing top layers
+              !averages with 1 point quadrature in the vertex
+              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
                 htot = 0.0
-                do lmiss=lmin,jlhkv(k),-1
+                do lmiss=lmin,jalhkv(k),-1
                   htot = htot + hdknv(lmiss,k)
                 end do
-                do lmiss=lmin,jlhkv(k),-1
+                do lmiss=lmin,jalhkv(k),-1
                   acu = acu + nov(lmiss,k) * hdknv(lmiss,k)/htot
                 end do
               else

@@ -346,9 +346,6 @@ c-----------------------------------------------------------
 
 	call sp111(1)           !here zenv, utlnv, vtlnv are initialized
 
-	call set_jlhv           !sets jlhv (elemental) according to zenv
-	call set_jlhkv          !sets jlhkv (nodal)
-
 c-----------------------------------------------------------
 c initialize depth arrays and barene data structure
 c-----------------------------------------------------------

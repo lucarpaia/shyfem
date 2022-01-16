@@ -246,9 +246,9 @@ GPU=NONE
 #
 ##############################################
 
-NETCDF = false
-#NETCDF = true
-#NETCDFDIR =
+#NETCDF = false
+NETCDF = true
+NETCDFDIR = /home/luca/Sofwares/anaconda3
 
 ##############################################
 # GOTM library
