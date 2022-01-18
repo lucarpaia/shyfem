@@ -1120,11 +1120,11 @@ c-------------------------------------------------------------
 
 	do l=1,ilevel
 
-	bfirst = l .eq. 1
+	bfirst = l .eq. jlevel !Luca
 	blast  = l .eq. ilevel
 	
 	lp = min(l+1,ilevel)
-	lm = max(l-1,1)
+	lm = max(l-1,jlevel) !Luca
 
 	uui = utlov(l,ie)
 	uuip = utlov(lp,ie)
@@ -1252,40 +1252,57 @@ c	------------------------------------------------------
 c	set up matrix A
 c	------------------------------------------------------
 
-	jv=l+l
-	ju=jv-1
+        jv=l+l
+        ju=jv-1
 
-	rmat(locssp(ju,ju,ngl,mbb)) = 1. + aa + uuadv
-	rmat(locssp(jv,jv,ngl,mbb)) = 1. + aa + vvadv
-	rmat(locssp(jv,ju,ngl,mbb)) =  gamma  + vuadv
-	rmat(locssp(ju,jv,ngl,mbb)) = -gamma  + uvadv
+	if (l.lt.jlevel) then
 
-	if( b2d ) then
-	  s2dmat(0,ju) = 1. + aa + uuadv
-	  s2dmat(0,jv) = 1. + aa + vvadv
-	  s2dmat(-1,jv) =  gamma  + vuadv
-	  s2dmat(+1,ju) = -gamma  + uvadv
-	  !s2dmat(-1,jv) = -gamma  + vuadv
-	  !s2dmat(+1,ju) =  gamma  + uvadv
+	  rmat(locssp(ju,ju,ngl,mbb)) = 1.
+          rmat(locssp(jv,jv,ngl,mbb)) = 1.
+
+          if( b2d ) then
+            s2dmat(0,ju) = 1.
+            s2dmat(0,jv) = 1.
+          else
+            smat(0,ju) = 1.
+            smat(0,jv) = 1.
+          end if
+
 	else
-	  smat(0,ju) = 1. + aa + uuadv
-	  smat(0,jv) = 1. + aa + vvadv
-	  smat(-1,jv) =  gamma  + vuadv
-	  smat(+1,ju) = -gamma  + uvadv
-	end if
 
-	if(.not.blast) then
+	  rmat(locssp(ju,ju,ngl,mbb)) = 1. + aa + uuadv
+	  rmat(locssp(jv,jv,ngl,mbb)) = 1. + aa + vvadv
+	  rmat(locssp(jv,ju,ngl,mbb)) =  gamma  + vuadv
+	  rmat(locssp(ju,jv,ngl,mbb)) = -gamma  + uvadv
+
+	  if( b2d ) then
+	    s2dmat(0,ju) = 1. + aa + uuadv
+	    s2dmat(0,jv) = 1. + aa + vvadv
+	    s2dmat(-1,jv) =  gamma  + vuadv
+	    s2dmat(+1,ju) = -gamma  + uvadv
+	    !s2dmat(-1,jv) = -gamma  + vuadv
+	    !s2dmat(+1,ju) =  gamma  + uvadv
+	  else
+	    smat(0,ju) = 1. + aa + uuadv
+	    smat(0,jv) = 1. + aa + vvadv
+	    smat(-1,jv) =  gamma  + vuadv
+	    smat(+1,ju) = -gamma  + uvadv
+	  end if
+
+	  if(.not.blast) then
 		rmat(locssp(ju,ju+2,ngl,mbb)) = -bb
 		rmat(locssp(jv,jv+2,ngl,mbb)) = -bb
 		smat(+2,ju) = -bb
 		smat(+2,jv) = -bb
-        end if
-	if(.not.bfirst) then
+          end if
+	  if(.not.bfirst) then
 		rmat(locssp(ju,ju-2,ngl,mbb)) = -cc
 		rmat(locssp(jv,jv-2,ngl,mbb)) = -cc
 		smat(-2,ju) = -cc
 		smat(-2,jv) = -cc
-        end if
+          end if
+
+	end if
 
 c	------------------------------------------------------
 c	set up right hand side -F^x and -F^y 
@@ -1778,7 +1795,7 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    abot = atop
 	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
 	  end do
-	  dz = dt * wlnv(lmin-1,k) / va(lmin,k)
+	  dz = dt * wlnv(lmin-1,k) / (va(lmin,k)+1e-12) !Luca
 	  dzmax = max(dzmax,abs(dz))
 	  wlnv(lmin-1,k) = 0.	! ensure no flux across surface - is very small
 	  dzeta(k) = dz
