@@ -552,7 +552,7 @@ c local
 	real, allocatable	:: ddl(:,:) !3D layer depth (in the middle of layer)
 	real, allocatable 	:: h(:)
         integer it              !time [s]
-        integer k,l,nlev,lmax
+        integer k,l,nlev,flev,lmax
 	real u,v
 	double precision tempvar,dtime
 
@@ -577,7 +577,7 @@ c local
 	  ddl = 0.
 
           do k = 1,nkn
-	    call dep3dnod(k,+1,nlev,h)
+	    call dep3dnod(k,+1,flev,nlev,h)
             ddl(1,k) = - 0.5 * h(1)
             do l = 2,nlev
               ddl(l,k) = ddl(l-1,k) - 0.5 * (h(l) + h(l-1))

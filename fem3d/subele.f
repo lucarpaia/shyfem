@@ -32,7 +32,7 @@ c function depele(ie,mode)
 c       computes total (average) depth of element ie
 c subroutine dep3dele(ie,mode,nlev,h)
 c       computes (average) depth of element ie for all layers
-c subroutine dep3dnod(k,mode,nlev,h)
+c subroutine dep3dnod(k,mode,flev,nlev,h)
 c       computes depth of node k for all layers
 c function zetaele(ie,mode)
 c       computes (average) zeta of element ie
@@ -200,7 +200,7 @@ c computes (average) depth of element ie for all layers
 
 c****************************************************************
 
-	subroutine dep3dnod(k,mode,nlev,h)
+	subroutine dep3dnod(k,mode,flev,nlev,h)
 
 c computes depth of node k for all layers
 
@@ -212,21 +212,23 @@ c computes depth of node k for all layers
 	integer k	!number of node
 	integer mode	!-1: old zeta   0: no zeta   1: new zeta
 	integer nlev	!total number of levels
+	integer flev    !top layer index 
 	real h(nlev)	!depth of layers
 
 	integer ndim
 	integer l
 
 	ndim = nlev
+        flev = jlhkv(k)	
 	nlev = ilhkv(k)
 	if( nlev > ndim ) goto 99
 
 	if( mode .gt. 0 ) then
-	  do l=1,nlev
+	  do l=flev,nlev
 	    h(l) = hdknv(l,k)
 	  end do
 	else if( mode .lt. 0 ) then
-	  do l=1,nlev
+	  do l=flev,nlev
 	    h(l) = hdkov(l,k)
 	  end do
 	else
