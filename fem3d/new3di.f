@@ -1690,12 +1690,12 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 		b = ev(ii+3,ie)
 		c = ev(ii+6,ie)
                 !element with missing top layers
-		if (l.eq.jlevel .and. jlevel.gt.jalhkv(kk)) then
+		if (l.eq.jlevel .and. jlevel.gt.jlhev(ii,ie)) then
 		  htot = 0.0
-                  do lmiss=jlevel,jalhkv(kk),-1
+                  do lmiss=jlevel,jlhev(ii,ie),-1
                     htot = htot + hdknv(lmiss,kk)
                   end do
-		  do lmiss=jlevel,jalhkv(kk),-1
+		  do lmiss=jlevel,jlhev(ii,ie),-1
 		    weight = hdknv(lmiss,kk)/htot
 		    ffn = (utlnv(l,ie)*b + vtlnv(l,ie)*c) * weight
                     ff = ffn * az
@@ -1720,12 +1720,12 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
                 c = ev(ii+6,ie)
                 !case of an element with less layers then
                 !the other elements surrouding node kk
-                if (l.eq.jlevel .and. jlevel.gt.jalhkov(kk)) then
+                if (l.eq.jlevel .and. jlevel.gt.jlheov(ii,ie)) then
                   htot = 0.0
-                  do lmiss=jlevel,jalhkov(kk),-1
+                  do lmiss=jlevel,jlheov(ii,ie),-1
                     htot = htot + hdkov(lmiss,kk)
 		  end do
-                  do lmiss=jlevel,jalhkov(kk),-1
+                  do lmiss=jlevel,jlheov(ii,ie),-1
                     weight = hdkov(lmiss,kk)/htot
                     ffo = (utlov(l,ie)*b + vtlov(l,ie)*c) * weight
                     ff = ffo * azt
@@ -1770,7 +1770,7 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
           if( iskin(k) ) then       
 	  !  
 	  lmax = ilhkv(k)
-	  lmin = jalhkv(k)
+	  lmin = jlhkv(k)
 	  wlnv(lmax,k) = 0.
 	  debug = k .eq. 0
 	  abot = 0.
@@ -1783,8 +1783,8 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    wdiv = vf(l,k) + q
 	    !configuration may be changed:
 	    !removed layers are remapped on the new grid
-	    if (l.eq.lmin .and. lmin.gt.jalhkov(k)) then	    
-	      do lmiss=lmin-1,jalhkov(k),-1
+	    if (l.eq.lmin .and. lmin.gt.jlhkov(k)) then	    
+	      do lmiss=lmin-1,jlhkov(k),-1
 	        dvdt = dvdt - volnode(lmiss,k,-1)/dt
 	        wdiv = wdiv + vf(lmiss,k)
 	      end do
@@ -1809,7 +1809,7 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
           !only at wet and wet/dry nodes	  
 	  if( iskin(k) ) then
 	  lmax = ilhkv(k)
-	  lmin = jalhkv(k)
+	  lmin = jlhkv(k)
 	  debug = k .eq. 0
 	  do l=lmin+1,lmax
 	    atop = va(l,k)

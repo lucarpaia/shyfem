@@ -671,23 +671,15 @@ c sets up area for nodes
 	  flev = jlhv(ie)
 	  do ii=1,n
 	    k = nen3v(ii,ie)
-            !nodal depth is computed only
-            !from "wet" side
-	    if (  iwegv(ie).eq.0 .or.
-     +           (iwegv(ie).gt.0 .and. inodv(k).ne.-1) ) then
-	    !
 	    do l=flev,nlev
 	      areakv(l,k) = areakv(l,k) + areafv
 	    end do
 	    !case of an element with missing top layers
-            if (flev.gt.jlhkv(k)) then
-              do lmiss=flev-1,jlhkv(k),-1
+            if (flev.gt.jlhev(ii,ie)) then
+              do lmiss=flev-1,jlhev(ii,ie),-1
 	        areakv(lmiss,k) = areakv(lmiss,k) + areafv
 	      end do
       	    end if
-	    !
-	    end if
-	    !end exluded areas
 	  end do
 	end do
         !area for removed layers
@@ -988,7 +980,7 @@ c sets up depth array for nodes
 
         logical bdebug
         logical bsigma
-	integer k,l,lmiss,ltop,ie,ii
+	integer k,l,lmiss,ie,ii
 	integer lmax,lmin,lmink,n,nlev,nsigma,levmin
 	real hfirst,hlast,h,htot,z,zmed,hm
 	real hacu,hlevel,hsigma,hsig
@@ -1036,8 +1028,8 @@ c	  -------------------------------------------------------
 	  do ii=1,n
 
 	    k = nen3v(ii,ie)
-	    lmink = jlhkv(k)
-	    htot = hkv_max(k)
+	    lmink = jlhev(ii,ie)
+	    htot = hm3v(ii,ie)
 	    z = zenv(ii,ie)
 	    hsig = min(htot,hsigma) + z		!total depth of sigma layers
 	    zmed = zmed + z
@@ -1047,27 +1039,20 @@ c	  -------------------------------------------------------
 	    end do
 
 	    if( lmax .gt. nsigma ) then
-	      !nodal depth is computed only
-	      !from "wet" side
-	      if ( iwegv(ie).eq.0 .or. 
-     +		  (iwegv(ie).gt.0 .and. inodv(k).ne.-1) ) then
-	      !
 	      if( lmax .eq. lmin) then
-                ltop=min(jalhkv(k),lmin)		      
-	        if( lmin .eq. lmink .or. lmin .eq. ltop) then
+	        if( lmin .eq. lmink ) then
 	          h = htot + z
 	          hdkn(lmin,k) = hdkn(lmin,k) + areafv * h
 		!element with missing top layers
 		else if ( lmin .gt. lmink ) then
-		  hdkn(lmin,k) = hdkn(lmin,k)+areafv*(htot-hlv(lmin-1))
-                  do lmiss=lmin-1,ltop+1,-1
+		  hdkn(lmin,k) = hdkn(lmin,k) + areafv * (htot - hlv(lmin-1))
+                  do lmiss=lmin-1,lmink+1,-1
                     hdkn(lmiss,k) = hdkn(lmiss,k) + areafv * hldv(lmiss)
                   end do
-                  hdkn(ltop,k)=hdkn(ltop,k)+areafv*(hlv(ltop)+z)
+                  hdkn(lmink,k)= hdkn(lmink,k) + areafv * (hlv(lmink)+z)
 		end if
 	      else
 	        levmin = nsigma + lmin
-		ltop=min(jalhkv(k),lmin)
 	        do l=levmin+1,lmax-1
 	          hdkn(l,k) = hdkn(l,k) + areafv * hldv(l)
 	        end do
@@ -1075,18 +1060,15 @@ c	  -------------------------------------------------------
 		  hdkn(lmin,k) = hdkn(lmin,k) + areafv * (hlv(lmin) + z)
 		!element with missing top layers	
 		else if ( levmin .eq. lmin .and. levmin .gt. lmink ) then 
-		  do lmiss=lmin,ltop+1,-1
+		  do lmiss=lmin,lmink+1,-1
 	            hdkn(lmiss,k) = hdkn(lmiss,k) + areafv * hldv(lmiss)
 		  end do
-		  hdkn(ltop,k) = hdkn(ltop,k) +areafv*(hlv(ltop)+z)
+		  hdkn(lmink,k) = hdkn(lmink,k) +areafv*(hlv(lmink)+z)
 		end if
 		hlast = htot - hlv(lmax-1)
 		if( hlast .lt. 0. ) goto 77
 	        hdkn(lmax,k) = hdkn(lmax,k) + areafv * hlast
 	      end if
-	      !
-	      end if
-	      !end exluded elements
 	    end if
 
 	    !do l=1,lmax
@@ -1175,10 +1157,7 @@ c----------------------------------------------------------------
 	  end do
           do l=lmin,lmax
             h = hdkn(l,k)
-	    !Luca: check with strictly negative depth
-	    !because zero depth can occur for removed
-	    !layers next to dry elements
-            if( h < hmin ) then
+            if( h <= hmin ) then
               write(6,*) 'error computing layer thickness'
               write(6,*) 'no layer depth in node: ',k,l,lmax
               write(6,*) 'depth: ',h

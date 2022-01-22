@@ -392,12 +392,12 @@ c---------------------------------------------------------------
                 f = ut * b + vt * c	! f>0 => flux into node
                 if( f .gt. 0. ) then
                   !element with missing top layers			
-                  if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then
+                  if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then
                     htot = 0.0
-                    do lmiss=lmin,jalhkv(k),-1
+                    do lmiss=lmin,jlhev(ii,ie),-1
                       htot = htot + hdkov(lmiss,k)
                     end do
-                    do lmiss=lmin,jalhkv(k),-1
+                    do lmiss=lmin,jlhev(ii,ie),-1
                       saux(lmiss,k) = saux(l,k) + f
 		      wei = hdkov(lmiss,k)/htot
                       momentxv(lmiss,k) = momentxv(lmiss,k) +f*ut*wei
@@ -526,13 +526,13 @@ c	    ---------------------------------------------------------------
                 if( f .lt. 0. ) then	!flux out of node => into element
 		  !for an element with missing top layers
 		  !mean nodal velocity from layer momentum
-                  if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then
+                  if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then
 		    htot = 0.0
-		    do lmiss=lmin,jalhkv(k),-1
+		    do lmiss=lmin,jlhev(ii,ie),-1
      		      htot = htot + hdkov(lmiss,k) 
 		    end do 
 		    up = 0.; vp = 0.
-                    do lmiss=lmin,jalhkv(k),-1
+                    do lmiss=lmin,jlhev(ii,ie),-1
                       up = up + momentxv(lmiss,k) / htot         !NEW
                       vp = vp + momentyv(lmiss,k) / htot
                     end do

@@ -947,7 +947,7 @@ c*****************************************************************
 
         subroutine set_jlhkv
 
-c set jlhkv, jalhkv and jlhkov array - only needs jlhv
+c set jlhkv,jlhev and jlhkov,jlheov array - only needs jlhv
 
         use levels
         use basin
@@ -961,19 +961,20 @@ c set jlhkv, jalhkv and jlhkov array - only needs jlhv
 	logical bsigma
         integer ie,ii,k,l,nsigma
         real hsigma
-	logical isein
+	logical isein,iseout,iskin
 
 	isein(ie) = iwegv(ie).eq.0
+        iseout(ie) = iwegv(ie).gt.0	
+	iskin(k) = inodv(k).ne.-1
 
         call get_sigma(nsigma,hsigma)
         bsigma = nsigma .gt. 0
 
         jlhkov=jlhkv              !swap for saving old index
-	jalhkov=jalhkv			
+	jlheov=jlhev			
 
         do k=1,nkn
-          jlhkv(k)=999
-	  jalhkv(k)=999
+          jlhkv(k)=huge(1)
         end do
 
         do ie=1,nel
@@ -986,20 +987,19 @@ c set jlhkv, jalhkv and jlhkov array - only needs jlhv
                 if(-hlv(l).le.zenv(ii,ie)) exit
               end do
             end if
-	    !safety min: jlhv>=ilhv
-	    if (l.lt.jlhkv(k)) jlhkv(k)=min(l,ilhkv(k))
-	    if (l.lt.jalhkv(k).and.isein(ie)) jalhkv(k)=min(l,ilhkv(k))
+	    !safety min: jlhev>=jlhv, jlhkv>=ilhkv
+	    jlhev(ii,ie)=min(l,jlhv(ie))
+	    if (isein(ie).or.(iseout(ie).and.iskin(k))) then
+	      if (l.lt.jlhkv(k)) jlhkv(k)=min(l,ilhkv(k))
+	    end if
           end do
         end do
 
-	!Luca: check this
         if( shympi_partition_on_elements() ) then
           !call shympi_comment('shympi_elem: exchange ilhkv - max')
           call shympi_exchange_2d_nodes_max(jlhkv)
-	  call shympi_exchange_2d_nodes_max(jalhkv)
         else
           call shympi_exchange_2d_node(jlhkv)
-	  call shympi_exchange_2d_node(jalhkv)
         end if
 
         end

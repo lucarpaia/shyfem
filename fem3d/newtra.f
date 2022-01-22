@@ -256,8 +256,8 @@ c baroclinic part
 	      uprv(l,k)=uprv(l,k)+aj*ulnv(l,ie)
 	      vprv(l,k)=vprv(l,k)+aj*vlnv(l,ie)
 	      !case of an element with missing top less layers
-	      if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
-		do lmiss=lmin-1,jalhkv(k),-1   
+	      if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then	      
+		do lmiss=lmin-1,jlhev(ii,ie),-1   
 	          uprv(lmiss,k)=uprv(lmiss,k)+aj*ulnv(lmin,ie)
                   vv(lmiss,k)=vv(lmiss,k)+aj    		  
 		end do
@@ -321,12 +321,12 @@ c
 	      k=nen3v(ii,ie)
               !case of element with missing top layers
 	      !averages with 1 point quadrature in the vertex
-              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
+              if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then	      
 		htot = 0.0
-            	do lmiss=lmin,jalhkv(k),-1
+            	do lmiss=lmin,jlhev(ii,ie),-1
                   htot = htot + hdknv(lmiss,k)
             	end do      
-                do lmiss=lmin,jalhkv(k),-1
+                do lmiss=lmin,jlhev(ii,ie),-1
                   u=u+uprv(lmiss,k) * hdknv(lmiss,k)/htot
                   v=v+vprv(lmiss,k) * hdknv(lmiss,k)/htot
                 end do
@@ -727,8 +727,8 @@ c-----------------------------------------------------------
               nov(l,k) = nov(l,k) + area*value
               aux(l,k) = aux(l,k) + area
               !case of an element missing top layers
-              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then
-                do lmiss=lmin-1,jalhkv(k),-1
+              if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then
+                do lmiss=lmin-1,jlhev(ii,ie),-1
                   nov(lmiss,k) = nov(lmiss,k) + area*value
                   aux(lmiss,k) = aux(lmiss,k) + area
                 end do
@@ -805,8 +805,8 @@ c-----------------------------------------------------------
                 nov(l,k) = min(nov(l,k),value)
 	      end if
               !case of an element with missing top layers
-              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
-                do lmiss=lmin-1,jalhkv(k),-1
+              if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then	      
+                do lmiss=lmin-1,jlhev(ii,ie),-1
                   if( mode .eq. 1 ) then
                     nov(lmiss,k) = max(nov(lmiss,k),value)
                   else
@@ -901,12 +901,12 @@ c-----------------------------------------------------------
               value = nov(l,k)
 	      !case of elements with missing top layers
               !averages with 1 point quadrature in the vertex
-              if (l.eq.lmin .and. lmin.gt.jalhkv(k)) then	      
+              if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then	      
                 htot = 0.0
-                do lmiss=lmin,jalhkv(k),-1
+                do lmiss=lmin,jlhev(ii,ie),-1
                   htot = htot + hdknv(lmiss,k)
                 end do
-                do lmiss=lmin,jalhkv(k),-1
+                do lmiss=lmin,jlhev(ii,ie),-1
                   acu = acu + nov(lmiss,k) * hdknv(lmiss,k)/htot
                 end do
               else
