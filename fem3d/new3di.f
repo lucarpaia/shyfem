@@ -1114,17 +1114,18 @@ c in case of a layer that does not exist (i-1 of first layer) give any
 c ...value because the corrisponding a/b/c will be 0
 c
 c l starts from 1: for practical implementation reasons
-c we keep top layers but for removed layers momentum update 
-c is fake -> rhs=0. By the way solution is unused
+c we keep in the matrix removed top layers (with identity sub-matrix)
+c For such layers, momentum update is fake: IU=0 -> U=0  
+c By the way solution is unused
 c-------------------------------------------------------------
 
 	do l=1,ilevel
 
-	bfirst = l .eq. jlevel !Luca
+	bfirst = l .eq. jlevel
 	blast  = l .eq. ilevel
 	
 	lp = min(l+1,ilevel)
-	lm = max(l-1,jlevel) !Luca
+	lm = max(l-1,jlevel)
 
 	uui = utlov(l,ie)
 	uuip = utlov(lp,ie)
@@ -1255,7 +1256,7 @@ c	------------------------------------------------------
         jv=l+l
         ju=jv-1
 
-	if (l.lt.jlevel) then
+	if (l.lt.jlevel) then			!removed top layers
 
 	  rmat(locssp(ju,ju,ngl,mbb)) = 1.
           rmat(locssp(jv,jv,ngl,mbb)) = 1.
@@ -1268,7 +1269,7 @@ c	------------------------------------------------------
             smat(0,jv) = 1.
           end if
 
-	else
+	else					!active layers
 
 	  rmat(locssp(ju,ju,ngl,mbb)) = 1. + aa + uuadv
 	  rmat(locssp(jv,jv,ngl,mbb)) = 1. + aa + vvadv
