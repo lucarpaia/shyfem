@@ -984,7 +984,7 @@ c set jlhkv,jlhev and jlhkov,jlheov array - only needs jlhv
               l = 1
             else
               do l=1,nlv
-                if(-hlv(l).le.zenv(ii,ie)) exit
+                if(-hlv(l).lt.zenv(ii,ie)) exit
               end do
             end if
 	    !safety min: jlhev>=jlhv, jlhkv>=ilhkv
