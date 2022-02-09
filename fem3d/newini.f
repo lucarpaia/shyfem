@@ -862,9 +862,10 @@ c local
 	integer ie,ii,l,lmax,nsigma
 	real hsigma
 
-	real zmin
+	real zmin,getpar,hzoff
 
 	lmax=0
+        hzoff=getpar('hzoff')
 
 	call get_sigma(nsigma,hsigma)
 	bsigma = nsigma .gt. 0
@@ -882,8 +883,10 @@ c local
 	  if( bsigma ) then	! sigma levels always start from 1
 	    l = 1
 	  else
-	    do l=1,nlv
-	      if(-hlv(l).le.zmin) exit
+	    do l=1,nlv          ! a threshold is used to avoid very small
+				! layers: hzoff as threshold
+	      !if((-hlv(l)+0.1*hldv(l)).le.zmin) exit
+              if((-hlv(l)+hzoff).le.zmin) exit
 	    end do
 c	    if( l .gt. nlv ) goto 99
 	  end if
@@ -962,10 +965,13 @@ c set jlhkv,jlhev and jlhkov,jlheov array - only needs jlhv
         integer ie,ii,k,l,nsigma
         real hsigma
 	logical isein,iseout,iskin
+	real getpar,hzoff
 
 	isein(ie) = iwegv(ie).eq.0
         iseout(ie) = iwegv(ie).gt.0	
 	iskin(k) = inodv(k).ne.-1
+
+        hzoff=getpar('hzoff')
 
         call get_sigma(nsigma,hsigma)
         bsigma = nsigma .gt. 0
@@ -984,7 +990,8 @@ c set jlhkv,jlhev and jlhkov,jlheov array - only needs jlhv
               l = 1
             else
               do l=1,nlv
-                if(-hlv(l).lt.zenv(ii,ie)) exit
+                !if((-hlv(l)+0.1*hldv(l)).lt.zenv(ii,ie)) exit
+                if((-hlv(l)+hzoff).lt.zenv(ii,ie)) exit		
               end do
             end if
 	    !safety min: jlhev>=jlhv, jlhkv>=ilhkv

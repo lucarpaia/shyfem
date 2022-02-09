@@ -113,20 +113,20 @@ c transforms transports to velocities
 	  stop 'error stop ttov: no layerthickness'
 	end if
 
-c	ulnv = 0.
-c	vlnv = 0.
-c	where( hdenv > 0. )
-c	  ulnv = utlnv / hdenv
-c	  vlnv = vtlnv / hdenv
-c	end where
+	ulnv = 0.
+	vlnv = 0.
+	where( hdenv > 0. )
+	  ulnv = utlnv / hdenv
+	  vlnv = vtlnv / hdenv
+	end where
 	!Desingularize velocities
-	do ie=1,nel
-	  do l=jlhv(ie),ilhv(ie)
-	  hdenv2reg = sqrt( hdenv(l,ie)**4 +max(hdenv(l,ie)**4,hzmin**4) )
-          ulnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*utlnv(l,ie)/ hdenv2reg
-          vlnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*vtlnv(l,ie)/ hdenv2reg
-	  end do
-	end do  
+c	do ie=1,nel
+c	  do l=jlhv(ie),ilhv(ie)
+c	  hdenv2reg = sqrt( hdenv(l,ie)**4 +max(hdenv(l,ie)**4,hzmin**4) )
+c          ulnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*utlnv(l,ie)/ hdenv2reg
+c          vlnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*vtlnv(l,ie)/ hdenv2reg
+c	  end do
+c	end do  
 
 	end
 
