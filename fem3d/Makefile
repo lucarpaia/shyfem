@@ -358,7 +358,7 @@ SOBJS   = \
 	  submod.o subuti.o subele.o subgeo.o subdts.o \
 	  links.o sublnka.o sublnks.o sublnku.o \
 	  debug.o subhisto.o subnosa.o subfvl.o \
-	  subeos.o sigmautil.o \
+	  subeos.o sigmautil.o zadaptutil.o \
 	  nosutil.o ousutil.o subfemfile.o subvintp.o \
 	  genutil.o subfemintp.o $(TSOBJS) subxi.o \
 	  $(MODULES) \
@@ -403,7 +403,7 @@ HTOBJS = \
 	atoxi3d.o atoxi.o kepsd.o keps_util.o \
 	newexpl.o subrnd.o \
 	submet.o subrgf.o subcoord.o subsrt.o subfvl.o \
-	subtrace.o subproj.o subeos.o sigmautil.o \
+	subtrace.o subproj.o subeos.o sigmautil.o zadaptutil.o \
 	subwrt.o subvintp.o \
 	subfemfile.o subtsuvfile.o \
 	subflxa.o subflx3d.o subflx.o subflxu.o \
@@ -447,7 +447,8 @@ OUTOBJS = $(PARMOD) subnls.o subsss.o subround.o subscn.o \
 	  debug.o subreg.o subnev.o \
 	  subfemfile.o subfemutil.o \
 	  $(TSOBJS) \
-	  subvintp.o subver.o sigmautil.o suboutput.o suboutputd.o \
+	  subvintp.o subver.o sigmautil.o \
+	  suboutput.o suboutputd.o \
 	  subclo.o \
 	  mod_depth.o mod_hydro.o mod_hydro_print.o \
 	  mod_geom.o mod_geom_dynamic.o \
@@ -1147,6 +1148,7 @@ $(MODDIR)/mod_zeta_system.mod: $(simsys_solver)
 ../femlib/mod/ts_util.mod: subtsutil.o
 ../femlib/mod/vector_matrix_utils.mod: aquabc_II_co2sys.o
 ../femlib/mod/ww3_shyfem.mod: subww3.o
+../femlib/mod/zadapt.mod: zadaptutil.o
 amgx_c_wrapper_dummy.o: ../femlib/mod/petscdm.mod \
 		../femlib/mod/petscdmlabel.mod \
 		../femlib/mod/petscmat.mod \
@@ -2095,4 +2097,12 @@ weutro_seed.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod
 weutro_shell.o: donata.h
 weutro_ulva.o: donata.h
 weutro_wdia.o: ../femlib/mod/eutro.mod weutro.h
-
+zadaptutil.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod \
+                ../femlib/mod/mod_depth.mod \
+		../femlib/mod/mod_area.mod \
+                ../femlib/mod/evgeom.mod \
+		../femlib/mod/mod_geom_dynamic.mod \
+		../femlib/mod/mod_layer_thickness.mod \
+                ../femlib/mod/mod_hydro.mod \
+                ../femlib/mod/mod_hydro_vel.mod \
+                ../femlib/mod/shympi.mod

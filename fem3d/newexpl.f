@@ -675,8 +675,8 @@ c stability is computed for dt == 1
             end do
 
 	    cc = rlin*r*area*ftot/vol
-	    !Luca: maybe de-singularize velocities
-	    !in case of small h
+	    !lrp: maybe de-singularize velocities
+	    !in case of small h (commented)
 	    !if (h<1e-3)  cc=0.
 	    if( iweg .gt. 0 ) cc = 0.	! dry element
 	    astab(l,ie) = cc

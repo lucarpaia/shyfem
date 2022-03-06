@@ -884,7 +884,7 @@ c local
 	logical bdebug,bdebug1,btvdv
 	integer k,ie,ii,l,iii,ll,ibase,ntot
 	integer lstart
-	integer ilevel
+	integer ilevel,jlevel
 	integer itot,isum	!$$flux
 	logical berror
 	integer kn(3)
@@ -1071,12 +1071,13 @@ c----------------------------------------------------------------
 	aj4=4.*aj
 	aj12=12.*aj
         ilevel=ilhv(ie)
+        jlevel=jlhv(ie)
 
 c	----------------------------------------------------------------
 c	set up vectors for use in assembling contributions
 c	----------------------------------------------------------------
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 	  hdv(l) = hdeov(l,ie)		!use old time step -> FIXME
           !haver(l) = 0.5 * ( hdeov(l,ie) + hdenv(l,ie) )
           haver(l) = rso*hdenv(l,ie) + rsot*hdeov(l,ie)
@@ -1120,13 +1121,14 @@ c	compute vertical fluxes (w/o vertical TVD scheme)
 c	----------------------------------------------------------------
 
 	wws = 0.	!sinking velocity alread in wl
-	call vertical_flux_ie(btvdv,ie,ilevel,dt,wws,cl,wl,hold,vflux)
+	call vertical_flux_ie(btvdv,ie,ilevel,jlhev(:,ie),
+     +			      dt,wws,cl,wl,hold,vflux)
 
 c----------------------------------------------------------------
 c loop over levels
 c----------------------------------------------------------------
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 
         us=az*utlnv(l,ie)+azt*utlov(l,ie)             !$$azpar
         vs=az*vtlnv(l,ie)+azt*vtlov(l,ie)
@@ -1209,7 +1211,7 @@ c	  if we are in last layer, w(l,ii) is zero
 c	  if we are in first layer, w(l-1,ii) is zero (see above)
 
 	  w = wl(l-1,ii)		!top of layer
-	  if( l .eq. 1 ) w = 0.		!surface -> no transport (WZERO)
+	  if( l .eq. jlevel ) w = 0.	!surface -> no transport (WZERO)
 	  if( w .ge. 0. ) then
 	    fw(ii) = aat*w*cl(l,ii)
 	    flux_top = w*cl(l,ii)
@@ -1363,7 +1365,7 @@ c clm -> top
 	!end do
 
 	do ii=1,3
-          do l=1,ilevel
+          do l=jlevel,ilevel
 	    ccle(l,ii,ie) =            cle(l,ii)
 	    cclm(l,ii,ie) = aj4 * dt * clm(l,ii)
 	    cclp(l,ii,ie) = aj4 * dt * clp(l,ii)
@@ -1402,13 +1404,14 @@ c----------------------------------------------------------------
 	do k=1,nkn
 	  call get_elems_around(k,maxlnk,n,elems)
 	  ilevel = ilhkv(k)
+          jlevel = jlhkv(k)
 	  do i=1,n
 	    ie = elems(i)
 	    ii = ithis(k,ie)
 	    if( ii == 0 .or. nen3v(ii,ie) /= k ) then
 	      stop 'error stop: cannot find ii...'
 	    end if
-	    do l=1,ilevel
+	    do l=jlevel,ilevel
 	      cn(l,k)    = cn(l,k)    + ccle(l,ii,ie)
 	      clow(l,k)  = clow(l,k)  + cclm(l,ii,ie)
 	      chigh(l,k) = chigh(l,k) + cclp(l,ii,ie)
@@ -1436,7 +1439,8 @@ c in case of negative flux (qflux<0) must check if node is OBC (BUG_2010_01)
 
 	do k=1,ntot
 	  ilevel = ilhkv(k)
-	  do l=1,ilevel
+          jlevel = jlhkv(k)       
+	  do l=jlevel,ilevel
             !mflux = cbound(l,k)		!mass flux has been passed
 	    cconz = cbound(l,k)		!concentration has been passed
 	    qflux = mfluxv(l,k)
@@ -1470,7 +1474,8 @@ c----------------------------------------------------------------
 
 	  do k=1,ntot
 	   ilevel = ilhkv(k)
-	   do l=1,ilevel
+           jlevel = jlhkv(k)	  
+	   do l=jlevel,ilevel
 	    if(cdiag(l,k).ne.0.) then
 	      cn(l,k)=cn(l,k)/cdiag(l,k)
 	    end if
@@ -1481,16 +1486,17 @@ c----------------------------------------------------------------
 
 	do k=1,ntot
 	  ilevel = ilhkv(k)
-	  aux=1./cdiag(1,k)
-	  chigh(1,k)=chigh(1,k)*aux
-	  cn(1,k)=cn(1,k)*aux
-	  do l=2,ilevel
+          jlevel = jlhkv(k)	      
+	  aux=1./cdiag(jlevel,k)
+	  chigh(jlevel,k)=chigh(jlevel,k)*aux
+	  cn(jlevel,k)=cn(jlevel,k)*aux
+	  do l=jlevel+1,ilevel
 	    aux=1./(cdiag(l,k)-clow(l,k)*chigh(l-1,k))
 	    chigh(l,k)=chigh(l,k)*aux
 	    cn(l,k)=(cn(l,k)-clow(l,k)*cn(l-1,k))*aux
 	  end do
 	  lstart = ilevel-1
-	  do l=lstart,1,-1	!$$LEV0 bug 14.08.1998 -> ran to 0
+	  do l=lstart,jlevel,-1	!$$LEV0 bug 14.08.1998 -> ran to 0
 	    cn(l,k)=cn(l,k)-cn(l+1,k)*chigh(l,k)
 	  end do
 	end do
@@ -1593,7 +1599,7 @@ c local
 	logical bdebug,bdebug1
 	integer k,ie,ii,l,iii,id
 	integer lstart
-	integer ilevel
+	integer ilevel,jlevel
 	logical berror
 	integer kn(3)
         real sindex,rstol,raux
@@ -1781,10 +1787,11 @@ c-----------------------------------------------------------------
 	aj=ev(10,ie)    !area of triangle / 12
 	aj4=4.*aj
         ilevel=ilhv(ie)
+        jlevel=jlhv(ie)
 
 c set up vectors for use in assembling contributions
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 	  hdv(l) = hdeov(l,ie)		!use old time step -> FIXME
           haver(l) = 0.5 * ( hdeov(l,ie) + hdenv(l,ie) )
 	  present(l) = 1.
@@ -1820,7 +1827,7 @@ c-----------------------------------------------------------------
 c loop over levels
 c-----------------------------------------------------------------
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 
         us=az*utlnv(l,ie)+azt*utlov(l,ie)             !$$azpar
         vs=az*vtlnv(l,ie)+azt*vtlov(l,ie)
@@ -1931,7 +1938,7 @@ c	--------------------------------------------------------
 c
 c	cdiag contains volume of finite node
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 	  do ii=1,3
 	    k=kn(ii)
             hmed = min(hold(l,ii),hnew(l,ii))
@@ -1961,8 +1968,9 @@ c-----------------------------------------------------------------
 	do k=1,nkn
 	  bdebug1 = k .eq. -1
 	  ilevel = ilhkv(k)
+          jlevel = jlhkv(k)	
           if( is_zeta_bound(k) ) cycle
-	  do l=1,ilevel
+	  do l=jlevel,ilevel
             voltot = cdiag(l,k)
             flxtot = chigh(l,k) + clow(l,k) + cn(l,k) + co(l,k)
 	    if( bdebug1 ) write(99,*) k,l,voltot,flxtot
@@ -2057,7 +2065,7 @@ c arguments
 	real cn(nlvddi,nkn)
 	real mass
 c local
-	integer k,l,lmax
+	integer k,l,lmax,lmin
         double precision vol
 	double precision sum,masstot
 	real volnode
@@ -2068,8 +2076,9 @@ c local
 
         do k=1,nkn
 	  lmax = ilhkv(k)
+	  lmin = jlhkv(k)
           sum = 0.
-          do l=1,lmax
+          do l=lmin,lmax
             vol = volnode(l,k,mode)
             sum = sum + cn(l,k) * vol
           end do
@@ -2153,7 +2162,7 @@ c checks min/max property
 	real eps
 
 	logical bwrite,bstop
-	integer k,ie,l,ii,lmax,ierr
+	integer k,ie,l,ii,lmax,lmin,ierr
 	integer levdbg
 	real amin,amax,c,qflux,dmax
 	real drmax,diff
@@ -2176,13 +2185,14 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
+          lmin = jlhkv(k)	
 	  amin = +1.e+30
 	  amax = -1.e+30
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    amin = min(amin,cov(l,k))
 	    amax = max(amax,cov(l,k))
 	  end do
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    rmin(l,k) = amin
 	    rmax(l,k) = amax
 	  end do
@@ -2194,7 +2204,8 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  do l=1,lmax
+          lmin = jlhkv(k)	  
+	  do l=lmin,lmax
 	    qflux = mfluxv(l,k)
 	    if( qflux .gt. 0. ) then
 	      c = sbconz(l,k)
@@ -2210,7 +2221,8 @@ c---------------------------------------------------------------
 
 	do ie=1,nel
 	  lmax = ilhv(ie)
-	  do l=1,lmax
+          lmin = jlhv(ie)	      
+	  do l=lmin,lmax
 	    amin = +1.e+30
 	    amax = -1.e+30
 	    do ii=1,3
@@ -2240,7 +2252,8 @@ c---------------------------------------------------------------
 	 !if( .not. is_external_boundary(k) ) then	!might be relaxed
 	 if( .not. is_zeta_bound(k) ) then	!might be relaxed
 	  lmax = ilhkv(k)
-	  do l=1,lmax
+          lmin = jlhkv(k)		 
+	  do l=lmin,lmax
 	    c = cnv(l,k)
 	    !rm1 = rmin(l,k)
 	    !rm2 = rmax(l,k)

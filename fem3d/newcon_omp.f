@@ -371,24 +371,28 @@ c*****************************************************************
       double precision,dimension(nlvddi,nkn),intent(inout) :: cn
         
         logical :: btvdv,btvd,bgradup
-	integer :: k,ii,l,iii,ll,ibase,lstart,ilevel,itot,isum
+	integer :: k,ii,l,iii,ibase,ilevel,itot,isum
+	integer :: lmiss,jlevel,jlevelk,jlevelmin
+	integer :: ll,lll,ll1,ll2,ll3,llisum
 	integer :: n,i,iext
 	integer, dimension(3) :: kn
-        double precision :: cexpl,cbm,ccm,waux,loading,wws,us,vs
+        double precision :: cexpl,cexplHoriz,cbm,ccm,waux,loading,wws
+	double precision :: us,vs,uso,vso,usn,vsn
         double precision :: aj,rk3,aj4,aj12
-        double precision :: hmed,hmbot,hmtop,hmotop,hmobot
+        double precision :: hmed,hmbot,hmtop,hmotop,hmobot,hdo,hdn
         double precision :: hmntop,hmnbot,rvptop,rvpbot,w,aux
         double precision :: flux_tot,flux_tot1,flux_top,flux_bot
         double precision :: rstot,hn,ho,cdummy,alow,adiag,ahigh
         double precision :: rkmin,rkmax,cconz
       double precision,dimension(3) :: fw,fd,fl,fnudge
       double precision,dimension(3) :: b,c,f,wdiff
-      double precision,dimension(0:nlvddi+1) :: hdv,haver,presentl
+      double precision,dimension(0:nlvddi+1) :: hdv,haver
       double precision,dimension(0:nlvddi+1,3) :: hnew,htnew,rtau,cob
       double precision,dimension(0:nlvddi+1,3) :: hold,htold,vflux,wl
-      double precision,dimension(0:nlvddi+1,3) :: cl
+      double precision,dimension(0:nlvddi+1,3) :: cl,presentl
       double precision,dimension(0:nlvddi+1,3) :: finu
       double precision,dimension(nlvddi,3) :: clc,clm,clp,cle
+      double precision,dimension(nlvddi) :: wein,weio
 	
 	if(nlv.ne.nlev) stop 'error stop conz3d_element: nlv/=nlev'
 
@@ -424,7 +428,9 @@ c*****************************************************************
 	  cl = 0.		!concentration in layer
 	  wl = 0.		!vertical velocity
 	  vflux = 0.		!vertical flux
-	
+	  weio = 0.		!weights for non-conformal edge
+	  wein = 0.		!(old and new) =0 for conformal edge
+
 !	these are the local arrays for accumulation of implicit terms
 !	(maybe we do not need them, but just to be sure...)
 !	after accumulation we copy them onto the global arrays
@@ -445,33 +451,60 @@ c*****************************************************************
 	aj4=4.*aj
 	aj12=12.*aj
         ilevel=ilhv(ie)
+	jlevel=jlhv(ie)
+
+        jlevelmin = huge(1)
+        do ii=1,3
+          jlevelmin=min(jlevelmin,jlhev(ii,ie))
+        end do
 
 ! 	----------------------------------------------------------------
 ! 	set up vectors for use in assembling contributions
 ! 	----------------------------------------------------------------
 
-        do l=1,ilevel
+        do l=jlevel,ilevel
 	  hdv(l) = hdeov(l,ie)		!use old time step -> FIXME
           !haver(l) = 0.5 * ( hdeov(l,ie) + hdenv(l,ie) )
-          haver(l) = rso*hdenv(l,ie) + rsot*hdeov(l,ie)
-	  presentl(l) = 1.
+          !haver(l) = rso*hdenv(l,ie) + rsot*hdeov(l,ie)   !lrp
 	  do ii=1,3
 	    k=kn(ii)
+	    jlevelk=jlhev(ii,ie)
 	    hn = hdknv(l,k)		! there are never more layers in ie
 	    ho = hdkov(l,k)		! ... than in k
             htold(l,ii) = ho
             htnew(l,ii) = hn
-	    hold(l,ii) = rso * hn + rsot * ho
+            hold(l,ii) = rso * hn + rsot * ho
 	    hnew(l,ii) = rsn * hn + rsnt * ho
 	    cl(l,ii) = cn1(l,k)
 	    cob(l,ii) = cobs(l,k)	!observations
 	    rtau(l,ii) = rtauv(l,k)	!observations
+            presentl(l,ii) = 1.	  
 	    wl(l,ii) = wlnv(l,k) - wsink * wsinkv(l,k)
+            !non-conformal edge	      
+            if (l.eq.jlevel .and. jlevel.gt.jlevelk) then
+	      do lmiss=jlevel-1,jlevelk,-1
+                ho = hdkov(lmiss,k)
+                hn = hdknv(lmiss,k)
+            	htold(lmiss,ii) = ho
+            	htnew(lmiss,ii) = hn
+            	hold(lmiss,ii) = rso * hn + rsot * ho
+            	hnew(lmiss,ii) = rsn * hn + rsnt * ho
+            	cl(lmiss,ii) = cn1(lmiss,k)
+           	cob(lmiss,ii) = cobs(lmiss,k)       !observations
+            	rtau(lmiss,ii) = rtauv(lmiss,k)     !observations		
+	        presentl(lmiss,ii) = 1.       !_____ Check these______
+		wl(lmiss,ii) = wlnv(lmiss,k) - wsink * wsinkv(lmiss,k)
+	      end do
+      	    end if
 	  end do
 	end do
 
+        !element with non conformal edge
+        !compute weights for horizontal advection:
+        call get_zadaptive_weights(ie,wein,weio)       	
+
 	do l=ilevel+1,nlv
-	  presentl(l) = 0.
+	  presentl(l,:) = 0.
 	end do
 
 ! 	----------------------------------------------------------------
@@ -494,16 +527,27 @@ c*****************************************************************
 ! 	----------------------------------------------------------------
 
 	wws = 0.	!sinking already in wl
-	call vertical_flux_ie(btvdv,ie,ilevel,dt,wws,cl,wl,hold,vflux)
+	call vertical_flux_ie(btvdv,ie,ilevel,jlhev(:,ie),
+     +			      dt,wws,cl,wl,hold,vflux)
 
 ! ----------------------------------------------------------------
 !  loop over levels
 ! ----------------------------------------------------------------
 
-        do l=1,ilevel
+! 	for elements with non-conformal edges we loop from the minimum
+! 	nodal top layer index over the element: some layers may not
+! 	exist at nodes: don't worry, we do not solve for these layers.
+!	This trick simplifies implementation of horizontal advection
 
-        us=az*utlnv(l,ie)+azt*utlov(l,ie)             !$$azpar
-        vs=az*vtlnv(l,ie)+azt*vtlov(l,ie)
+        do l=jlevelmin,ilevel
+					!keep the right transport value
+        ll=max(l,jlevel)		!for non-conformal elements
+        usn=utlnv(ll,ie)                !$$azpar
+        vsn=vtlnv(ll,ie)
+        uso=utlov(ll,ie)
+        vso=vtlov(ll,ie)
+	hdn=hdenv(ll,ie)
+	hdo=hdeov(ll,ie)
 
         rk3 = 3. * rkpar * difhv(l,ie)
 
@@ -513,6 +557,32 @@ c*****************************************************************
 	isum=0
 	do ii=1,3
 	  k=kn(ii)
+          jlevelk = jlhev(ii,ie)
+
+!         ----------------------------------------------------------------
+!         adjusting transport for element with non-conformal edges
+!         ----------------------------------------------------------------
+
+!         If one non-conformal edge is found, horiz adv/diff is
+!         computed as:
+!	  1/element is splitted in n=(jlevel-jlevelkmin) sublevels 
+!	  2/standard advection/diffusion scheme is used on each sublevel
+!	  Splitting of transports/depth is realised with the same weights 
+!	  used for vertical velocities -> preserve tracer constancy
+
+	  if (jlevel.gt.jlevelmin .and. l.le.jlevel) then
+            uso = utlov(ll,ie) * weio(l)
+            vso = vtlov(ll,ie) * weio(l)
+            usn = utlnv(ll,ie) * wein(l)
+            vsn = vtlnv(ll,ie) * wein(l)
+	    hdo = hdeov(ll,ie) * weio(l)
+	    hdn = hdenv(ll,ie) * wein(l)  
+            !write(*,*) "us vs", ie,ii,l, jlevelmin, weio(l), wein(l)
+          end if
+          us=az*usn+azt*uso
+          vs=az*vsn+azt*vso
+	  haver(l)=rso*hdn+rsot*hdo
+
 	  f(ii)=us*b(ii)+vs*c(ii)	!$$azpar
 	  if(f(ii).lt.0.) then	!flux out of node
 	    itot=itot+1
@@ -526,20 +596,15 @@ c*****************************************************************
 ! 	  ----------------------------------------------------------------
 
 	  fw(ii) = 0.
+	  wdiff(ii) = 0.
 	  !cle(l,ii) = 0.	!ERIC
 	  !clc(l,ii) = 0.
 	  !clm(l,ii) = 0.
 	  !clp(l,ii) = 0.
 
-! 	  ----------------------------------------------------------------
-! 	  contributions from horizontal diffusion
-! 	  ----------------------------------------------------------------
-
-          waux = 0.
-          do iii=1,3
-            waux = waux + wdifhv(iii,ii,ie) * cl(l,iii)
-          end do
-          wdiff(ii) = waux
+          if (l.ge.jlevelk) then        !Sanity check for t-layer to exist
+					!not really needed but avoids
+					!computations in not existing layer
 
 ! 	  ----------------------------------------------------------------
 ! 	  contributions from vertical diffusion
@@ -556,10 +621,10 @@ c*****************************************************************
 	  rvpbot = difv(l,k) + difmol
 	  !hmtop = 2. * rvptop * presentl(l-1) / (hdv(l-1)+hdv(l))
 	  !hmbot = 2. * rvpbot * presentl(l+1) / (hdv(l)+hdv(l+1))
-	  hmotop =2.*rvptop*presentl(l-1)/(hold(l-1,ii)+hold(l,ii))
-	  hmobot =2.*rvpbot*presentl(l+1)/(hold(l,ii)+hold(l+1,ii))
-	  hmntop =2.*rvptop*presentl(l-1)/(hnew(l-1,ii)+hnew(l,ii))
-	  hmnbot =2.*rvpbot*presentl(l+1)/(hnew(l,ii)+hnew(l+1,ii))
+	  hmotop =2.*rvptop*presentl(l-1,ii)/(hold(l-1,ii)+hold(l,ii))
+	  hmobot =2.*rvpbot*presentl(l+1,ii)/(hold(l,ii)+hold(l+1,ii))
+	  hmntop =2.*rvptop*presentl(l-1,ii)/(hnew(l-1,ii)+hnew(l,ii))
+	  hmnbot =2.*rvpbot*presentl(l+1,ii)/(hnew(l,ii)+hnew(l+1,ii))
 
 	  fd(ii) = adt * ( 
      +			(cl(l,ii)-cl(l+1,ii))*hmobot -
@@ -582,7 +647,7 @@ c*****************************************************************
 ! 	  if we are in first layer, w(l-1,ii) is zero (see above)
 
 	  w = wl(l-1,ii)		!top of layer
-	  if( l .eq. 1 ) w = 0.		!surface -> no transport (WZERO)
+	  if( l .eq. jlevelk ) w = 0.	!surface -> no transport (WZERO)
 	  if( w .ge. 0. ) then
 	    fw(ii) = aat*w*cl(l,ii)
 	    flux_top = w*cl(l,ii)
@@ -609,10 +674,24 @@ c*****************************************************************
 	  flux_tot = aat * ( vflux(l-1,ii) - vflux(l,ii) )
 
 	  fw(ii) = flux_tot
+
+	  end if			!end of sanity check
+
+!         ----------------------------------------------------------------
+!         contributions from horizontal diffusion (outside check)
+!         ----------------------------------------------------------------
+
+          waux = 0.
+          do iii=1,3
+            lll=max(l,jlhev(iii,ie))	!keep the right tracer value
+            waux = waux + wdifhv(iii,ii,ie) * cl(lll,iii)
+          end do
+          wdiff(ii) = waux
+
 	end do
 
 ! 	----------------------------------------------------------------
-! 	contributions from horizontal advection (only explicit)
+! 	contributions from horizontal advection (only explicit,out check)
 ! 	----------------------------------------------------------------
 ! 
 ! 	f(ii) > 0 ==> flux into node ii
@@ -622,15 +701,20 @@ c*****************************************************************
 ! 		for flux use conz. of the other two nodes and
 ! 		minus the sum of these nodes for the flux of this node
 
+        llisum=max(l,jlhev(isum,ie))	!keep the right tracer value  
+	ll1=max(l,jlhev(1,ie)) 	        !for non-conformal elements
+        ll2=max(l,jlhev(2,ie))		!
+        ll3=max(l,jlhev(3,ie))		!
+
 	if(itot.eq.1) then	!$$flux
-	  fl(1)=f(1)*cl(l,isum)
-	  fl(2)=f(2)*cl(l,isum)
-	  fl(3)=f(3)*cl(l,isum)
+	  fl(1)=f(1)*cl(llisum,isum)
+	  fl(2)=f(2)*cl(llisum,isum)
+	  fl(3)=f(3)*cl(llisum,isum)
 	else if(itot.eq.2) then
 	  isum=6-isum
-	  fl(1)=f(1)*cl(l,1)
-	  fl(2)=f(2)*cl(l,2)
-	  fl(3)=f(3)*cl(l,3)
+	  fl(1)=f(1)*cl(ll1,1)
+	  fl(2)=f(2)*cl(ll2,2)
+	  fl(3)=f(3)*cl(ll3,3)
 	  fl(isum) = 0.
 	  fl(isum) = -(fl(1)+fl(2)+fl(3))
 	  isum=6-isum		!reset to original value
@@ -675,17 +759,22 @@ c*****************************************************************
 
 	do ii=1,3
 	  k=kn(ii)
-          hmed = haver(l)                    !new ggu   !HACK
+          jlevelk = jlhev(ii,ie)
+
+          if (l.ge.jlevelk) then        !Sanity check for t-layer to exist
+                                        !not really needed but avoids
+                                        !computations in not existin layer
+		  
+          hmed = haver(l)               !new ggu   !HACK
 	  cexpl = aj4 * ( hold(l,ii)*cl(l,ii)
      +				+ dt *  ( 
      +					    hold(l,ii)*fnudge(ii)
-     +					  + 3.*fl(ii) 
+c     +					  + 3.*fl(ii) 
      +					  - fw(ii)
-     +					  - rk3*hmed*wdiff(ii)
+c     +					  - rk3*hmed*wdiff(ii)
      +					  - fd(ii)
      +					)
      +			               )
-	  
 	  !clm(1,ii) = 0.		!ERIC
 	  !clp(ilevel,ii) = 0.
 	  ! next check to be deleted
@@ -703,6 +792,16 @@ c*****************************************************************
 	  clow(l,k)  = clow(l,k)  + alow
 	  chigh(l,k) = chigh(l,k) + ahigh   
           cdiag(l,k) = cdiag(l,k) + adiag
+
+          end if                        !end of sanity check
+
+	  !we complete with horizontal adv/dif:	  
+	  !treated outside sanity-check for non-conformal edges
+	  ll=max(l,jlevelk)
+	  hmed = haver(l)
+          cexplHoriz = aj4 * dt * ( 3.*fl(ii) - rk3*hmed*wdiff(ii) )
+	  cn(ll,k)   = cn(ll,k)   + cexplHoriz
+
 	end do
 
 	end do		! loop over l
@@ -757,7 +856,7 @@ c*****************************************************************
 	double precision,dimension(nlvddi),intent(inout) :: clow
 	double precision,dimension(nlvddi),intent(inout) :: chigh
 
-	integer :: l,ilevel,lstart,i,ii,ie,n,ibase
+	integer :: l,ilevel,jlevel,lstart,i,ii,ie,n,ibase
 	double precision :: mflux,qflux,cconz
 	double precision :: loading,aux,cload
 
@@ -769,8 +868,9 @@ c*****************************************************************
 ! ----------------------------------------------------------------
 
       	  ilevel = ilhkv(k)
+          jlevel = jlhkv(k)
 
-	  do l=1,ilevel
+	  do l=jlevel,ilevel
 
             !mflux = cbound(l,k)		!mass flux has been passed
 	    cconz = cbound(l,k)			!concentration has been passed
@@ -811,8 +911,7 @@ c*****************************************************************
 	    write(6,*) 'conz: computing explicitly ',nlv
 	  end if
 
-	  ilevel = ilhkv(k)
-	  do l=1,ilevel
+	  do l=jlevel,ilevel
 	    if(cdiag(l).ne.0.) then
 	      cn(l,k)=cn(l,k)/cdiag(l)
 	    end if
@@ -820,18 +919,17 @@ c*****************************************************************
 
 	else
 
-	  ilevel = ilhkv(k)
-	  aux=1./cdiag(1)
-	  chigh(1)=chigh(1)*aux
-	  cn(1,k)=cn(1,k)*aux
-	  do l=2,ilevel
+	  aux=1./cdiag(jlevel)
+	  chigh(jlevel)=chigh(jlevel)*aux
+	  cn(jlevel,k)=cn(jlevel,k)*aux
+	  do l=jlevel+1,ilevel
 	    if( cdiag(l) == 0. ) goto 99
 	    aux=1./(cdiag(l)-clow(l)*chigh(l-1))
 	    chigh(l)=chigh(l)*aux
 	    cn(l,k)=(cn(l,k)-clow(l)*cn(l-1,k))*aux
 	  end do
 	  lstart = ilevel-1
-	  do l=lstart,1,-1	!$$LEV0 bug 14.08.1998 -> ran to 0
+	  do l=lstart,jlevel,-1	!$$LEV0 bug 14.08.1998 -> ran to 0
 	    cn(l,k)=cn(l,k)-cn(l+1,k)*chigh(l)
 	  end do
 	end if

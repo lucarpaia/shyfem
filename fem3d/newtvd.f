@@ -731,7 +731,7 @@ c ------------------- l+2 -----------------------
 
 c*****************************************************************
 
-	subroutine vertical_flux_ie(btvdv,ie,lmax,dt,wsink
+	subroutine vertical_flux_ie(btvdv,ie,lmax,lmin,dt,wsink
      +					,cl,wvel,hold,vflux)
 
 c computes vertical fluxes of concentration - element version
@@ -752,7 +752,8 @@ c ------------------- l+2 -----------------------
 
 	logical btvdv				!use vertical tvd?
 	integer ie				!element
-	integer lmax				!total number of layers
+	integer lmax				!index of bottom layer
+	integer lmin(3)				!index of top layer	
 	double precision dt			!time step
 	double precision wsink			!sinking velocity (+ downwards)
 	double precision cl(0:nlvdi+1,3)	!scalar to be advected
@@ -774,7 +775,7 @@ c ------------------- l+2 -----------------------
 	double precision, parameter :: half = 1./2.
 
 	do ii=1,3
-	 do l=1,lmax-1
+	 do l=lmin(ii),lmax-1
 	  w = wvel(l,ii) - wsink
 
 	  if( w .gt. 0. ) then
@@ -813,7 +814,7 @@ c ------------------- l+2 -----------------------
 
 	  vflux(l,ii) = w * conf
 	 end do
-	 vflux(0,ii) = 0.
+	 vflux(lmin(ii)-1,ii) = 0.
 	 vflux(lmax,ii) = 0.
 	end do
 

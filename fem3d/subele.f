@@ -668,24 +668,12 @@ c sets up area for nodes
 	  areael = areaele(ie)
 	  areafv = areael / n
 	  nlev = ilhv(ie)
-	  flev = jlhv(ie)
+	  flev = 1 !jlhv(ie)
 	  do ii=1,n
 	    k = nen3v(ii,ie)
 	    do l=flev,nlev
 	      areakv(l,k) = areakv(l,k) + areafv
 	    end do
-	    !case of an element with missing top layers
-            if (flev.gt.jlhev(ii,ie)) then
-              do lmiss=flev-1,jlhev(ii,ie),-1
-	        areakv(lmiss,k) = areakv(lmiss,k) + areafv
-	      end do
-      	    end if
-	  end do
-	end do
-        !area for removed layers
-        do k=1,nkn
-	  do lmiss=jlhkv(k)-1,jlhkov(k),-1
-	    areakv(lmiss,k) = areakv(jlhkv(k),k)
 	  end do
 	end do
 
@@ -913,52 +901,6 @@ c checks differences between old and new depth values (debug)
 
 c***********************************************************
 
-        subroutine make_new_transport
-
-c conservative remap of the transports when a top
-c layer is removed/inserted	
-
-	use levels	
-        use mod_layer_thickness
-        use mod_hydro
-	use basin, only : nel
-
-        implicit none
-
-	integer ie,l,lminnv,lminov
-	real htot  			 !total depth of inserted layers
-
-        do ie=1,nel
-
-	  lminnv = jlhv(ie)
-          lminov = jlhov(ie)
-
-	  if (lminnv > lminov) then 	 !top layer element removed
-	    do l=lminnv-1,lminov,-1	 !loop over removed layers 
-	      utlnv(lminnv,ie) = utlnv(lminnv,ie) + utlnv(l,ie)
-              vtlnv(lminnv,ie) = vtlnv(lminnv,ie) + vtlnv(l,ie)	      
-      	      utlnv(l,ie) = 0.0		 !cleaning removed layer	   
-	      vtlnv(l,ie) = 0.0          !
-	    end do
-
-	  else if (lminnv < lminov) then !top layer inserted
-	    htot = 0.0
-	    do l=lminov,lminnv,-1 
-              htot = htot + hdenv(l,ie)   
-            end do  
-	    do l=lminov,lminnv,-1 	 !loop over inserted layers 
-	      utlnv(l,ie) = utlnv(lminov,ie) * hdenv(l,ie)/htot
-	      vtlnv(l,ie) = vtlnv(lminov,ie) * hdenv(l,ie)/htot 
-            end do	      
-c	  else				 !no insertion/removal happened 	
-	  endif    
-
-	end do
-
-        end
-
-c***********************************************************
-
 	subroutine setdepth(levdim,hdkn,hden,zenv,area)
 
 c sets up depth array for nodes
@@ -973,9 +915,9 @@ c sets up depth array for nodes
 	implicit none
 
 	integer levdim
-	real hdkn(levdim,nkn)	!depth at node, new time level
-	real hden(levdim,nel)	!depth at element, new time level
-	real zenv(3,nel)    	!water level at new time level
+	real hdkn(levdim,nkn)	  !depth at node, new time level
+	real hden(levdim,nel)	  !depth at element, new time level
+	real zenv(3,nel)    	  !water level at new time level
         real area(levdim,nkn)
 
         logical bdebug
@@ -988,6 +930,13 @@ c sets up depth array for nodes
 
 	real areael,areafv
 	real areaele
+
+        integer nadaptk(nkn) !index of last adaptive sigma level
+	integer nadapt(4)    !number of adaptive sigma level
+        integer ladapt(4)    !level of last adaptive sigma level	
+        real hadapt(3)       !depth of last adaptive sigma level
+        real cadapt(levdim,3) !coefficients of adaptive sigma level
+	real hzad,hnod
 
         bdebug = .false.
 	hmin = -99999.
@@ -1021,6 +970,9 @@ c----------------------------------------------------------------
 	  hm = hev(ie)
 	  zmed = 0.
 
+          call compute_zadaptive_info(ie,nlv,jlhev(:,ie),hlv,zenv(:,ie),
+     +          nadapt,ladapt,hadapt,cadapt)
+
 c	  -------------------------------------------------------
 c	  nodal values
 c	  -------------------------------------------------------
@@ -1031,44 +983,29 @@ c	  -------------------------------------------------------
 	    lmink = jlhev(ii,ie)
 	    htot = hm3v(ii,ie)
 	    z = zenv(ii,ie)
-	    hsig = min(htot,hsigma) + z		!total depth of sigma layers
 	    zmed = zmed + z
+	    hsig = min(htot,hsigma) + z		!total depth sigma layers
+            hzad = min(htot,hadapt(ii)) + z	!total depth z-adaptive layers
+	    nadaptk(k) = nadapt(ii)		!nadatp saved by node
 
 	    do l=1,nsigma
 	      hdkn(l,k) = - hsig * hldv(l)	!these have already depth
 	    end do
+            do l=lmink,ladapt(ii)
+              hdkn(l,k) = - hzad * cadapt(l,ii)
+  	    end do
 
 	    if( lmax .gt. nsigma ) then
-	      if( lmax .eq. lmin) then
-	        if( lmin .eq. lmink ) then
-	          h = htot + z
-	          hdkn(lmin,k) = hdkn(lmin,k) + areafv * h
-		!element with missing top layers
-		else if ( lmin .gt. lmink ) then
-		  hdkn(lmin,k) = hdkn(lmin,k) + areafv * (htot - hlv(lmin-1))
-                  do lmiss=lmin-1,lmink+1,-1
-                    hdkn(lmiss,k) = hdkn(lmiss,k) + areafv * hldv(lmiss)
-                  end do
-                  hdkn(lmink,k)= hdkn(lmink,k) + areafv * (hlv(lmink)+z)
-		end if
-	      else
-	        levmin = nsigma + lmin
-	        do l=levmin+1,lmax-1
-	          hdkn(l,k) = hdkn(l,k) + areafv * hldv(l)
-	        end do
-	        if( levmin .eq. lmin .and. levmin .eq. lmink ) then
-		  hdkn(lmin,k) = hdkn(lmin,k) + areafv * (hlv(lmin) + z)
-		!element with missing top layers	
-		else if ( levmin .eq. lmin .and. levmin .gt. lmink ) then 
-		  do lmiss=lmin,lmink+1,-1
-	            hdkn(lmiss,k) = hdkn(lmiss,k) + areafv * hldv(lmiss)
-		  end do
-		  hdkn(lmink,k) = hdkn(lmink,k) +areafv*(hlv(lmink)+z)
-		end if
-		hlast = htot - hlv(lmax-1)
-		if( hlast .lt. 0. ) goto 77
-	        hdkn(lmax,k) = hdkn(lmax,k) + areafv * hlast
+	      levmin = nsigma + nadapt(ii) + lmink
+	      do l=levmin,lmax-1
+	        hdkn(l,k) = hdkn(l,k) + areafv * hldv(l)
+	      end do
+	      if( levmin .eq. lmink ) then
+	        hdkn(lmink,k) = hdkn(lmink,k) + areafv *(hlv(lmink-1) + z)
 	      end if
+	      hlast = htot - hlv(lmax-1)
+	      if( hlast .lt. 0. ) goto 77
+	      hdkn(lmax,k) = hdkn(lmax,k) + areafv * hlast
 	    end if
 
 	    !do l=1,lmax
@@ -1102,17 +1039,26 @@ c	  -------------------------------------------------------
 	  do l=1,nsigma
 	    hden(l,ie) = - hsig * hldv(l)
 	  end do
+          do l=lmin,ladapt(4) 
+	    do ii=1,n
+              hzad = min(htot,hadapt(ii)) + zenv(ii,ie)	  
+	      call get_zadaptivelayer_thickness(l,lmin,hzad,ladapt(ii),
+     +			cadapt(l,ii),hldv(l),hlv(l-1),zenv(ii,ie),hnod)
+	      hden(l,ie) = hden(l,ie) + hnod  
+	    end do
+	    hden(l,ie) = hden(l,ie)/n  
+	  end do
 
 	  if( lmax .gt. nsigma ) then
 	    if( lmax .eq. lmin ) then
 	      hden(lmin,ie) = htot + zmed
 	    else
-	      levmin = nsigma + lmin
-	      do l=levmin+1,lmax-1
+	      levmin = nsigma + nadapt(4) + lmin
+	      do l=levmin,lmax-1
 	        hden(l,ie) = hldv(l)
 	      end do
 	      if( levmin .eq. lmin ) then
-	        hden(lmin,ie) = hden(lmin,ie) + hlv(lmin) + zmed
+	        hden(lmin,ie) = hden(lmin,ie) + hlv(lmin-1) + zmed
 	      end if
   	      hlast = htot - hlv(lmax-1)
 	      if( hlast .lt. 0. ) goto 77
@@ -1148,7 +1094,7 @@ c----------------------------------------------------------------
 	do k=1,nkn_inner
 	  lmax = ilhkv(k)
 	  lmin = jlhkv(k)
-          levmin = nsigma + lmin  
+          levmin = nsigma + nadaptk(k) + lmin 
 	  do l=levmin,lmax
 	    areafv = area(l,k)
 	    if( areafv .gt. 0. ) then

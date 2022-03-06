@@ -406,19 +406,9 @@ c-----------------------------------------------------------------
 
         call setzev			!copy znv to zenv
         call setuvd			!set velocities in dry areas
+	call baro2l                     !set new transports in dry areas
 
-c-----------------------------------------------------------------
-c depth computation + removal/insertion (r/i) of top layers
-c-----------------------------------------------------------------
-
-        call set_jlhv           	!set top layer index (elemental)
-	call set_jlhkv          	!set top layer index (nodal)
-
-	call set_area			!always call before make_new_depth
-	call make_new_depth		!set new layers depth
-        call make_new_transport		!set new transports after r/i 	
-        call baro2l                     !set new transports in dry areas
-
+        call make_new_depth
 	call check_volume		!checks for negative volume 
         call arper
 
@@ -464,8 +454,8 @@ c-----------------------------------------------------------------
 c compute velocities on elements and nodes
 c-----------------------------------------------------------------
 
-	call compute_velocities
-
+	!call compute_velocities	!lrp: make sure you don't need 
+					!velocities for tracers
 c-----------------------------------------------------------------
 c end of routine
 c-----------------------------------------------------------------
@@ -1641,11 +1631,11 @@ c local
 	real dzmax,dz
 	real, allocatable :: vf(:,:)
 	real, allocatable :: va(:,:)
+        double precision,dimension(nlvdi) :: wein,weio
 c statement functions
 
 	logical is_zeta_bound
 	real volnode
-	real htot,weight
 
 	logical isein,iskin
         isein(ie) = iwegv(ie).eq.0
@@ -1681,67 +1671,34 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	  !
 	  aj=4.*ev(10,ie)		!area of triangle / 3
 	  ilevel = ilhv(ie)
-	  !configuration may be changed between
-	  !time^{n+1} and time^{n} due to element insertion/removal:
-	  !we treat separately time level t^{n+1} and t^{n}
-          jlevel = jlhv(ie) 		! t^{n+1}
+          jlevel = jlhv(ie)
+	  weio = 0.; wein = 0.
+	  call get_zadaptive_weights(ie,wein,weio)
 	  do l=jlevel,ilevel
 	    do ii=1,3
 		kk=nen3v(ii,ie)
 		b = ev(ii+3,ie)
 		c = ev(ii+6,ie)
-                !element with missing top layers
+                !element with non conformal edge
 		if (l.eq.jlevel .and. jlevel.gt.jlhev(ii,ie)) then
-		  htot = 0.0
-                  do lmiss=jlevel,jlhev(ii,ie),-1
-                    htot = htot + hdknv(lmiss,kk)
-                  end do
 		  do lmiss=jlevel,jlhev(ii,ie),-1
-		    weight = hdknv(lmiss,kk)/htot
-		    ffn = (utlnv(l,ie)*b + vtlnv(l,ie)*c) * weight
-                    ff = ffn * az
+		    ffn = (utlnv(jlevel,ie)*b + vtlnv(jlevel,ie)*c)
+                    ffo = (utlov(jlevel,ie)*b + vtlov(jlevel,ie)*c)
+                    ff = ffn *wein(lmiss)* az + ffo *weio(lmiss)* azt
                     vf(lmiss,kk) = vf(lmiss,kk) + 3. * aj * ff
                     va(lmiss,kk) = va(lmiss,kk) + aj
 		  end do
 		!general case for inferior layers
-		!or no missing layers
+		!or with conformal edge
 		else
 		  ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
-                  ff = ffn * az
+                  ffo = utlov(l,ie)*b + vtlov(l,ie)*c	
+		  ff = ffn * az + ffo * azt	  	  
                   vf(l,kk) = vf(l,kk) + 3. * aj * ff
                   va(l,kk) = va(l,kk) + aj
 		end if
 	    end do
 	  end do
-          jlevel = jlhov(ie)             ! t^{n}
-          do l=jlevel,ilevel
-            do ii=1,3
-                kk=nen3v(ii,ie)
-                b = ev(ii+3,ie)
-                c = ev(ii+6,ie)
-                !case of an element with less layers then
-                !the other elements surrouding node kk
-                if (l.eq.jlevel .and. jlevel.gt.jlheov(ii,ie)) then
-                  htot = 0.0
-                  do lmiss=jlevel,jlheov(ii,ie),-1
-                    htot = htot + hdkov(lmiss,kk)
-		  end do
-                  do lmiss=jlevel,jlheov(ii,ie),-1
-                    weight = hdkov(lmiss,kk)/htot
-                    ffo = (utlov(l,ie)*b + vtlov(l,ie)*c) * weight
-                    ff = ffo * azt
-                    vf(lmiss,kk) = vf(lmiss,kk) + 3. * aj * ff
-                  end do
-                !general case for inferior layers 
-                !or no missing layers 
-                else
-                  ffo = utlov(l,ie)*b + vtlov(l,ie)*c
-                  ff = ffo * azt
-                  vf(l,kk) = vf(l,kk) + 3. * aj * ff
-                end if
-            end do
-	  end do
-	  !
 	  end if 
 	  !end exluded areas  
 	end do
@@ -1782,21 +1739,13 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    dvdt = (voln-volo)/dt
 	    q = mfluxv(l,k)
 	    wdiv = vf(l,k) + q
-	    !configuration may be changed:
-	    !removed layers are remapped on the new grid
-	    if (l.eq.lmin .and. lmin.gt.jlhkov(k)) then	    
-	      do lmiss=lmin-1,jlhkov(k),-1
-	        dvdt = dvdt - volnode(lmiss,k,-1)/dt
-	        wdiv = wdiv + vf(lmiss,k)
-	      end do
-	    end if
 	    !wfold = azt * (atop*wlov(l-1,k)-abot*wlov(l,k))
 	    !wlnv(l-1,k) = wlnv(l,k) + (wdiv-dvdt+wfold)/az
 	    wlnv(l-1,k) = wlnv(l,k) + wdiv - dvdt
 	    abot = atop
 	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
 	  end do
-	  dz = dt * wlnv(lmin-1,k) / (va(lmin,k)+1e-12) !Luca
+	  dz = dt * wlnv(lmin-1,k) / (va(lmin,k)+1e-12) !lrp: (+eps)
 	  dzmax = max(dzmax,abs(dz))
 	  wlnv(lmin-1,k) = 0.	! ensure no flux across surface - is very small
 	  dzeta(k) = dz
