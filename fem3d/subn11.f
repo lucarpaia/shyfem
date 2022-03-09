@@ -385,6 +385,7 @@ c	-----------------------------------------------------
 
 	call init_z(zconst)	!initializes znv and zenv
 	call setweg(0,iw)	!sets minimum depth
+	call setnod		!sets inodv for set_jlhkv
 	call setznv		!adjusts znv
 
         call set_jlhv           !sets jlhv (elemental) according to zenv
