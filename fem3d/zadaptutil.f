@@ -834,6 +834,7 @@ c 2/ remap variable           reamp_hydro
         call set_jlhkv               !set top layer index (nodal)
 	call remap_hydro             !set new layers hydro variables	
 	call remap_scalar	     !set new layers ts variables
+        call compute_velocities      !re-compute velocities (elements and nodes)
 
 	end
 

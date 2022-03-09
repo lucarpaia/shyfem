@@ -496,8 +496,6 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	   call zadaptation		!handling z-adaptive layers
 
-	   call compute_velocities      !compute velocities (elements and nodes)
-
            call turb_closure
 
            call parwaves                !parametric wave model

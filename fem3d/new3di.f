@@ -454,8 +454,8 @@ c-----------------------------------------------------------------
 c compute velocities on elements and nodes
 c-----------------------------------------------------------------
 
-	!call compute_velocities	!lrp: make sure you don't need 
-					!velocities for tracers
+	call compute_velocities	
+
 c-----------------------------------------------------------------
 c end of routine
 c-----------------------------------------------------------------
