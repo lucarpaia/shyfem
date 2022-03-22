@@ -652,7 +652,6 @@ c sets up area for nodes
 	use basin
 	use mod_area
 	use shympi
-        use mod_geom_dynamic
 
 	implicit none
 
@@ -668,9 +667,9 @@ c sets up area for nodes
 	  areael = areaele(ie)
 	  areafv = areael / n
 	  nlev = ilhv(ie)
-	  flev = 1 !jlhv(ie)
 	  do ii=1,n
 	    k = nen3v(ii,ie)
+	    flev = jlhev(ii,ie)
 	    do l=flev,nlev
 	      areakv(l,k) = areakv(l,k) + areafv
 	    end do
@@ -906,7 +905,6 @@ c***********************************************************
 c sets up depth array for nodes
 
 	use mod_depth
-	use mod_geom_dynamic	
 	use evgeom
 	use levels
 	use basin
@@ -931,7 +929,6 @@ c sets up depth array for nodes
 	real areael,areafv
 	real areaele
 
-        integer nadaptk(nkn) !index of last adaptive sigma level
 	integer nadapt(4)    !number of adaptive sigma level
         integer ladapt(4)    !level of last adaptive sigma level	
         real hadapt(3)       !depth of last adaptive sigma level
@@ -970,8 +967,8 @@ c----------------------------------------------------------------
 	  hm = hev(ie)
 	  zmed = 0.
 
-          call compute_zadaptive_info(ie,nlv,jlhev(:,ie),hlv,zenv(:,ie),
-     +          nadapt,ladapt,hadapt,cadapt)
+          call compute_zadaptive_info(ie,nlv,jlhev(:,ie),lmax,
+     +		hlv,zenv(:,ie),nadapt,ladapt,hadapt,cadapt)
 
 c	  -------------------------------------------------------
 c	  nodal values
@@ -986,16 +983,18 @@ c	  -------------------------------------------------------
 	    zmed = zmed + z
 	    hsig = min(htot,hsigma) + z		!total depth sigma layers
             hzad = min(htot,hadapt(ii)) + z	!total depth z-adaptive layers
-	    nadaptk(k) = nadapt(ii)		!nadatp saved by node
+	    if ( ladapt(ii).eq.lmax .and. (htot-hadapt(ii)).gt.0) then
+	      hzad = hzad + (htot-hadapt(ii))   !correction for bottom layer
+	    end if  
 
 	    do l=1,nsigma
 	      hdkn(l,k) = - hsig * hldv(l)	!these have already depth
 	    end do
             do l=lmink,ladapt(ii)
-              hdkn(l,k) = - hzad * cadapt(l,ii)
+              hdkn(l,k) = hdkn(l,k) - hzad * cadapt(l,ii) * areafv
   	    end do
 
-	    if( lmax .gt. nsigma ) then
+	    if( lmax .gt. (nsigma+ladapt(ii)) ) then
 	      levmin = nsigma + nadapt(ii) + lmink
 	      do l=levmin,lmax-1
 	        hdkn(l,k) = hdkn(l,k) + areafv * hldv(l)
@@ -1004,7 +1003,7 @@ c	  -------------------------------------------------------
 	        hdkn(lmink,k) = hdkn(lmink,k) + areafv *(hlv(lmink-1) + z)
 	      end if
 	      hlast = htot - hlv(lmax-1)
-	      if( hlast .lt. 0. ) goto 77
+	      !if( hlast .lt. 0. ) goto 77  !lrp: remove this line
 	      hdkn(lmax,k) = hdkn(lmax,k) + areafv * hlast
 	    end if
 
@@ -1049,7 +1048,7 @@ c	  -------------------------------------------------------
 	    hden(l,ie) = hden(l,ie)/n  
 	  end do
 
-	  if( lmax .gt. nsigma ) then
+	  if( lmax .gt. (nsigma+ladapt(4)) ) then
 	    if( lmax .eq. lmin ) then
 	      hden(lmin,ie) = htot + zmed
 	    else
@@ -1094,7 +1093,7 @@ c----------------------------------------------------------------
 	do k=1,nkn_inner
 	  lmax = ilhkv(k)
 	  lmin = jlhkv(k)
-          levmin = nsigma + nadaptk(k) + lmin 
+          levmin = nsigma + lmin
 	  do l=levmin,lmax
 	    areafv = area(l,k)
 	    if( areafv .gt. 0. ) then

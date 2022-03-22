@@ -408,6 +408,7 @@ c-----------------------------------------------------------------
         call setuvd			!set velocities in dry areas
 	call baro2l                     !set new transports in dry areas
 
+	!call set_area !lrp (see if really needed)
         call make_new_depth
 	call check_volume		!checks for negative volume 
         call arper
@@ -1637,9 +1638,8 @@ c statement functions
 	logical is_zeta_bound
 	real volnode
 
-	logical isein,iskin
-        isein(ie) = iwegv(ie).eq.0
-        iskin(k)  = inodv(k) .eq.0 .or. inodv(k) .eq.-1
+	!logical isein
+        !isein(ie) = iwegv(ie).eq.0
 
 c 2d -> nothing to be done
 
@@ -1665,10 +1665,7 @@ c f(ii) > 0 ==> flux into node ii
 c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 
 	do ie=1,nel
-	  !vertical velocity is computed 
-	  !only from the wet side
-	  if( isein(ie) ) then
-	  !
+	 !if( isein(ie) ) then		!FIXME	
 	  aj=4.*ev(10,ie)		!area of triangle / 3
 	  ilevel = ilhv(ie)
           jlevel = jlhv(ie)
@@ -1699,8 +1696,7 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 		end if
 	    end do
 	  end do
-	  end if 
-	  !end exluded areas  
+	 !end if		
 	end do
 
 	if( shympi_partition_on_elements() ) then
@@ -1723,10 +1719,6 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	dzmax = 0.
 
 	do k=1,nkn
-          !vertical velocity is computed
-          !only at wet and wet/dry nodes
-          if( iskin(k) ) then       
-	  !  
 	  lmax = ilhkv(k)
 	  lmin = jlhkv(k)
 	  wlnv(lmax,k) = 0.
@@ -1749,15 +1741,9 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	  dzmax = max(dzmax,abs(dz))
 	  wlnv(lmin-1,k) = 0.	! ensure no flux across surface - is very small
 	  dzeta(k) = dz
-	  !	
-	  end if
-	  !end exluded areas
 	end do
 
 	do k=1,nkn
-          !vertical velocity is computed
-          !only at wet and wet/dry nodes	  
-	  if( iskin(k) ) then
 	  lmax = ilhkv(k)
 	  lmin = jlhkv(k)
 	  debug = k .eq. 0
@@ -1768,7 +1754,6 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	      if( debug ) write(6,*) k,l,atop,wlnv(l-1,k)
 	    end if
 	  end do
-      	  end if
 	end do
 
 c set w to zero at open boundary nodes (new 14.08.1998)

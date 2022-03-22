@@ -384,6 +384,7 @@ c*****************************************************************
         double precision :: flux_tot,flux_tot1,flux_top,flux_bot
         double precision :: rstot,hn,ho,cdummy,alow,adiag,ahigh
         double precision :: rkmin,rkmax,cconz
+	double precision :: fw_wetdry,clp_wetdry 	
       double precision,dimension(3) :: fw,fd,fl,fnudge
       double precision,dimension(3) :: b,c,f,wdiff
       double precision,dimension(0:nlvddi+1) :: hdv,haver
@@ -792,6 +793,20 @@ c     +					  - rk3*hmed*wdiff(ii)
 	  clow(l,k)  = clow(l,k)  + alow
 	  chigh(l,k) = chigh(l,k) + ahigh   
           cdiag(l,k) = cdiag(l,k) + adiag
+
+!         special treatement at wet-dry nodes with multiple levels:
+!         vertical flux at free-surface should be zero on wet side 
+!         but it is not and I have to add it manually to preserve 
+!         tracer constancy	  
+	  if (l.eq.jlevelk .and. jlhkv(k).lt.jlevelk) then
+            w = wl(l-1,ii)
+            clp_wetdry = - aa*w
+            fw_wetdry = aat * vflux(l-1,ii)		  
+	    cexpl = aj4 * dt * fw_wetdry
+            ahigh = aj4 * dt * clp_wetdry
+            cn(jlhkv(k),k)    = cn(jlhkv(k),k)  + cexpl
+            chigh(jlhkv(k),k) = chigh(jlhkv(k),k) + ahigh
+	  end if	  
 
           end if                        !end of sanity check
 
