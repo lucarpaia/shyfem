@@ -28,8 +28,10 @@ c routines for handling z-adaptive layers
 c
 c	compute_zadaptive_info (subele.f)
 c	get_zadaptivelayer_thickness (subele.f)
+c	init_zadaptation (shyfem.f)
 c	zadaptation (shyfem.f)
-c	get_zadaptive_weights (new3di.f)
+c	copy_zadaptation (shyfem.f)
+c	get_zadaptive_weights (new3di.f,newcon_omp.f)
 c
 c******************************************************************
 c******************************************************************
@@ -43,6 +45,9 @@ c******************************************************************
 
 	real, save :: rmin_gridmov = 0.125 !threshold grid movement
 	real, save :: rmin_gridtop = 0.200 !threshold grid topology
+
+	integer, save, allocatable :: iskremap(:,:) !remap yes/no
+	integer, save, allocatable :: iseremap(:,:) !remap yes/no
 
 !==================================================================
         end module zadapt
@@ -193,9 +198,9 @@ c---------------------------------------------------------
 
 	end
 
-c******************************************************************
+c*****************************************************************
 
-        subroutine get_zadaptive_weights(ie,weightn,weighto)
+        subroutine get_zadaptive_weights(ie,weight,mode)
 
 c returns weights to split transport across sublevels for
 c non-conformal element. Non-conformal element are those:
@@ -234,19 +239,35 @@ c TODO hdknv still global ... pass as argument
 	implicit none
 
 	integer :: ie		!element index
-	double precision,dimension(nlvdi) :: weightn !weights at new time-level(return)
-        double precision,dimension(nlvdi) :: weighto !weights at old time-level(return)
+	double precision,dimension(nlvdi) :: weight !weights (return)
+	integer mode		!mode
 
-	integer jlevel,jlevelmin,jlevelk
+	integer jlevel,jlevelmin
+	integer jlevelk(3)
 	integer lmiss,k,ii,n,numOfLev
-	double precision wn,wo
+	double precision w
+	real depnode
 	logical isenonconf
 
+c---------------------------------------------------------
+c mode
+c---------------------------------------------------------    
+
+	if( mode .gt. 0 ) then
+	  jlevel = jlhv(ie)
+	  jlevelk = jlhev(:,ie)
+	else if( mode .lt. 0 ) then
+          jlevel = jlhov(ie)
+          jlevelk = jlheov(:,ie)		
+	else
+	  write(6,*) 'mode = 0 not implemented'
+	  stop 'error stop'
+	end if
+
 	n = 3
-	jlevel = jlhv(ie)
         jlevelmin = huge(1)
         do ii=1,3
-          jlevelmin=min(jlevelmin,jlhev(ii,ie))
+          jlevelmin=min(jlevelmin,jlevelk(ii))
         end do
 
 c---------------------------------------------------------
@@ -258,8 +279,7 @@ c---------------------------------------------------------
 
 	if (isenonconf) then
 
-        wn = 0.
-        wo = 0.	
+        w = 0.
 
 c---------------------------------------------------------
 c loop over sub-layers
@@ -267,8 +287,7 @@ c---------------------------------------------------------
 
         do lmiss=jlevel,jlevelmin,-1
 
-          weightn(lmiss) = 0.
-	  weighto(lmiss) = 0.
+          weight(lmiss) = 0.
 
 c---------------------------------------------------------
 c loop over node -> compute element sub-layer depth
@@ -277,21 +296,18 @@ c---------------------------------------------------------
 	  do ii=1,n
 
 	    k=nen3v(ii,ie)
-            jlevelk = jlhev(ii,ie)
 
-	    if (lmiss.gt.jlevelk) then
-              weightn(lmiss) = weightn(lmiss) + hdknv(lmiss,k)
-              weighto(lmiss) = weighto(lmiss) + hdkov(lmiss,k) 
+	    if (lmiss.gt.jlevelk(ii)) then
+              weight(lmiss) = weight(lmiss) + depnode(lmiss,k,mode)
             else
-              numOfLev = real(jlevelk-jlevelmin+1)
-	      weightn(lmiss) = weightn(lmiss) + hdknv(jlevelk,k)/numOfLev
-	      weighto(lmiss) = weighto(lmiss) + hdkov(jlevelk,k)/numOfLev
+              numOfLev = real(jlevelk(ii)-jlevelmin+1)
+	      weight(lmiss) = weight(lmiss) + 
+     + 				depnode(jlevelk(ii),k,mode)/numOfLev
             end if
 
 	  end do
 
-          wn = wn + weightn(lmiss)
-          wo = wo + weighto(lmiss)
+          w = w + weight(lmiss)
 
 	end do
 
@@ -300,14 +316,9 @@ c compute sub-layer weight
 c---------------------------------------------------------
 
         do lmiss=jlevel,jlevelmin,-1
-
-	  !if (wn.gt.0) then 
-	    weightn(lmiss) = weightn(lmiss)/wn
-	  !end if
-          if (wo.gt.0) then		  
-            weighto(lmiss) = weighto(lmiss)/wo
+          if (w.gt.0) then		  
+            weight(lmiss) = weight(lmiss)/w
 	  end if 
-
         end do
 
 	end if
@@ -324,8 +335,10 @@ c*****************************************************************
 
 c sets elemental top layer index: jlhv and jlhvo 
 c only needs zenv and hlv
-c jlhv(ie)	layer index of the upper existing layer updated 
-c jlhvo(ie)	layer index of the upper existing layer before update	
+c jlhv(ie)	new layer index of the upper existing layer 
+c jlhvo(ie)	old layer index of the upper existing layer
+c rlhv(ie)      lower layer index where insertion/removal
+c               operations occurred: needed for remap operations
 c e.g. jlhv(ie)=2 means first layer has been removed for element ie
 
         use zadapt
@@ -350,15 +363,18 @@ c local
 	call get_sigma_info(nlev,nsigma,hsigma)
 	bsigma = nsigma .gt. 0
 
-	jlhov=jlhv    		! swap for saving old index
-				! first timestep: jlhov=1 even if some
-				! layer are removed but it is unused
+	rlhv = 0		! initialize 0: no config change
+        iseremap = 1            ! initialize 1: no config change	
 
 c---------------------------------------------------------
 c loop over element
 c---------------------------------------------------------
 
 	do ie=1,nel
+
+c---------------------------------------------------------
+c set jlhv
+c---------------------------------------------------------
 
 	  zmin = 1000000.
 	  do ii=1,3
@@ -378,6 +394,17 @@ c---------------------------------------------------------
 	  jlhv(ie)=min(l,ilhv(ie)) !safety min: jlhv>=ilhv
 	  lmax = max(lmax,jlhv(ie))
 
+c---------------------------------------------------------
+c set rlhv
+c---------------------------------------------------------
+
+	  if (jlhv(ie).gt.jlhov(ie)) then	!top layer removed	
+            rlhv(ie) = jlhv(ie) 
+	  else if (jlhv(ie).lt.jlhov(ie)) then	!top layer inserted
+	    rlhv(ie) = jlhov(ie)
+          end if
+	  iseremap(1:rlhv(ie),ie) = 0
+
 	end do
 
 c	nlv = lmax
@@ -395,15 +422,18 @@ c*****************************************************************
 
         subroutine set_jlhkv
 		
-c set nodal top layer index jlhkv,jlhev and jlhkov,jlheov array - 
+c set nodal index for top layer jlhkv,jlhev and jlhkov,jlheov array - 
+c set nodal index for remap operations
 c only needs zenv
 c a double index is needed (by node and elem) for wet/dry interfaces:
 c top layer depends on the free surface and at wet/dry interfaces 
 c the free-surface is discontinous -> element storing is also required
-c jlhkv(k)     layer index of the upper existing node updated (node)
-c jlhev(ii,ie) layer index of the upper existing node updated (elem)
-c jlhkov(k)    layer index of the upper existing node before update   
-c jlhkev(ii,ie)layer index of the upper existing node before update
+c jlhkv(k)     new layer index of the upper existing node (node)
+c jlhev(ii,ie) new layer index of the upper existing node (elem)
+c jlhkov(k)    old layer index of the upper existing node   
+c jlhkev(ii,ie)old layer index of the upper existing node
+c rlhkv(k)     lowest layer index where insertion/removal
+c              operations occurred: needed for remap operations
 c 
 c e.g. jlhkv(k)=jlhkv(ii,ie)=2 means first layer has been removed 
 c      for node k <-> (ii,ie) but only if k is not wet/dry
@@ -420,8 +450,7 @@ c      for node k <-> (ii,ie) but only if k is not wet/dry
 	logical bsigma
         integer ie,ii,k,l,nlev,nsigma
         real hsigma
-	!logical isein,iseout,iskin
-	!real getpar,hzoff 	  !lrp
+	!real getpar,hzoff	  !lrp
 	real r 
 
 	r = rmin_gridtop
@@ -430,8 +459,8 @@ c      for node k <-> (ii,ie) but only if k is not wet/dry
         call get_sigma_info(nlev,nsigma,hsigma)
         bsigma = nsigma .gt. 0
 
-        jlhkov=jlhkv              !swap for saving old index
-	jlheov=jlhev			
+        rlhkv = 0		  !initialize 0: no config change
+	iskremap = 1		  !initialize 1: no config change
 
         do k=1,nkn
           jlhkv(k)=huge(1)
@@ -444,6 +473,11 @@ c---------------------------------------------------------
         do ie=1,nel
           do ii=1,3
 	    k=nen3v(ii,ie)
+
+c---------------------------------------------------------
+c set jlhev, jlhkv
+c---------------------------------------------------------
+
             if( bsigma ) then     !sigma levels always start from 1
               l = 1
             else
@@ -452,24 +486,64 @@ c---------------------------------------------------------
                 !if((-hlv(l)+hzoff).lt.zenv(ii,ie)) exit		
               end do
             end if
-	    !safety min: jlhev>=jlhv, jlhkv>=ilhkv
-	    jlhev(ii,ie)=min(l,jlhv(ie))
+	    jlhev(ii,ie)=min(l,jlhv(ie)) !safety min: jlhev>=jlhv, jlhkv>=ilhkv
 	    if (jlhev(ii,ie).lt.jlhkv(k)) then 
 	      jlhkv(k)=min(jlhev(ii,ie),ilhkv(k))
 	    end if
+
+c---------------------------------------------------------
+c set rlhkv
+c---------------------------------------------------------  	      
+	      
+            if (jlhev(ii,ie).gt.jlheov(ii,ie)) then       !top layer removed 
+              rlhkv(k) = max(rlhkv(k),jlhev(ii,ie))	  !safety max for w/d nodes 
+            else if (jlhev(ii,ie).lt.jlheov(ii,ie)) then  !top layer inserted
+              rlhkv(k) = max(rlhkv(k),jlheov(ii,ie))
+            end if  
+            iskremap(1:rlhkv(k),k) = 0
+
           end do
         end do
 
         if( shympi_partition_on_elements() ) then
           !call shympi_comment('shympi_elem: exchange ilhkv - max')
-          call shympi_exchange_2d_nodes_max(jlhkv)
+          call shympi_exchange_2d_nodes_min(jlhkv)
         else
           call shympi_exchange_2d_node(jlhkv)
         end if
 
+        if( shympi_partition_on_elements() ) then
+          !call shympi_comment('shympi_elem: exchange ilhkv - max')
+          call shympi_exchange_2d_nodes_max(rlhkv)
+        else
+          call shympi_exchange_2d_node(rlhkv)
+        end if
+
+        !if( shympi_partition_on_elements() ) then !FIXME: parallel implementation
+        !  call shympi_exchange_3d_nodes_min(iskremap)
+        !else
+        !  call shympi_exchange_3d_node(iskremap)
+        !end if
+
 c---------------------------------------------------------
 c end of routine
 c---------------------------------------------------------
+
+        end
+
+c*****************************************************************	
+
+        subroutine copy_zadaptation
+
+c copies u/v/z to old time step
+
+        use levels
+
+        implicit none
+
+        jlhov  = jlhv
+        jlhkov = jlhkv
+	jlheov = jlhev
 
         end
 
@@ -523,6 +597,549 @@ c	  else				 !no insertion/removal happened
         end
 
 c*****************************************************************
+
+	subroutine remap_new_depth
+
+c shell (helper) for setdepth
+
+	use mod_layer_thickness
+	use mod_area
+	use mod_hydro
+	use levels, only : nlvdi,nlv
+
+	implicit none
+
+	call remapdepth(nlvdi,hdknv,hdenv,zenv,areakv)
+
+	end
+
+c*****************************************************************
+
+	subroutine remapdepth(levdim,hdkn,hden,zenv,area)
+
+c remap depth array for nodes
+
+	use zadapt
+	use mod_depth
+	use evgeom
+	use levels
+	use basin
+	use shympi
+
+	implicit none
+
+	integer levdim
+	real hdkn(levdim,nkn)	  !depth at node, new time level
+	real hden(levdim,nel)	  !depth at element, new time level
+	real zenv(3,nel)    	  !water level at new time level
+        real area(levdim,nkn)
+
+        logical bdebug
+	integer k,l,ie,ii
+	integer lmax,lmin,lremap,lmink,lremapk,n
+	real hfirst,hlast,h,htot,z,zmed,hm
+	real hmin
+
+	real areael,areafv
+	real areaele
+
+        bdebug = .false.
+	hmin = -99999.
+	hmin = 0.
+
+c----------------------------------------------------------------
+c initialize and copy
+c----------------------------------------------------------------
+
+	!cleaning layer to be remapped
+	hdkn = hdkn * real(iskremap)
+        hden = hden * real(iseremap)
+
+c----------------------------------------------------------------
+c compute volumes at node
+c----------------------------------------------------------------
+
+	do ie=1,nel
+
+	  !call elebase(ie,n,ibase)
+	  n = 3
+	  areael = 12 * ev(10,ie)
+	  areafv = areael / n
+
+	  lmax = ilhv(ie)
+	  lmin = jlhv(ie)
+	  lremap = rlhv(ie)
+	  hm = hev(ie)
+	  zmed = 0.
+
+c	  -------------------------------------------------------
+c	  nodal values
+c	  -------------------------------------------------------
+
+	  do ii=1,n
+
+	    k = nen3v(ii,ie)
+	    lmink = jlhev(ii,ie)
+            lremapk = min(rlhkv(k),lmax)
+	    htot = hm3v(ii,ie)
+	    z = zenv(ii,ie)
+	    zmed = zmed + z
+
+	    do l=lmink,lremapk
+	      hdkn(l,k) = hdkn(l,k) + areafv * hldv(l)
+	      if ( l .eq. lmink) then
+	        hdkn(lmink,k) = hdkn(lmink,k) + areafv *(hlv(lmink-1) + z)
+	      end if
+	    end do
+            if( lremapk .eq. lmax ) then
+              hlast = htot - hlv(lmax-1)
+              !if( hlast .lt. 0. ) goto 77  !lrp: remove this line	      
+              hdkn(lmax,k) = hdkn(lmax,k) + areafv * (hlast-hldv(l))
+            end if
+
+	    !do l=1,lmax
+	    !  if( hdkn(l,k) <= 0. ) then
+	    !    write(6,*) 'no volume in node ',k
+	    !    write(6,*) 'depth: ',h
+	    !    write(6,*) 'nlv,lmax: ',nlv,lmax
+	    !    write(6,*) 'nsigma: ',nsigma
+	    !    write(6,*) 'hlv: ',hlv
+	    !    write(6,*) 'hldv: ',hldv
+	    !    write(6,*) 'hdkn: ',hdkn(:,k)
+	    !    stop 'error stop setdepth: no volume in node'
+	    !  end if
+	    !end do
+
+	  end do
+
+!	  in hdkn is volume of finite volume around k
+!	  in sigma layers hdkn already contains nodal depth
+
+c	  -------------------------------------------------------
+c	  element values
+c	  -------------------------------------------------------
+
+	  k = 0
+	  ii = 0
+	  zmed = zmed / n
+	  htot = hev(ie)
+
+	  do l=lmin,lremap
+	    hden(l,ie) = hldv(l)
+	    if ( l .eq. lmin) then
+	      hden(lmin,ie) = hden(lmin,ie) + hlv(lmin-1) + zmed    
+	    end if
+	  end do
+	  if( lremap .eq. lmax ) then
+  	    hlast = htot - hlv(lmax-1)
+	    if( hlast .lt. 0. ) goto 77
+	    hden(lmax,ie) = hlast
+	  end if
+
+          do l=lmin,lremap
+            h = hden(l,ie)
+            if( h <= hmin ) then
+              write(6,*) 'error computing layer thickness'
+              write(6,*) 'no layer depth in element: ',ie,l,lmax
+              write(6,*) 'depth: ',h,htot,zmed
+              write(6,*) 'additional information available in fort.666'
+              call check_set_unit(666)
+              call check_elem(ie)
+              call check_nodes_in_elem(ie)
+              stop 'error stop setdepth: no layer in element'
+            end if
+          end do
+
+	end do
+
+	if( shympi_partition_on_elements() ) then
+          !call shympi_comment('shympi_elem: exchange hdkn')
+          call shympi_exchange_and_sum_3d_nodes(hdkn)
+	end if
+
+c----------------------------------------------------------------
+c compute depth at nodes
+c----------------------------------------------------------------
+
+	do k=1,nkn_inner
+	  lmin = jlhkv(k)
+          lremapk = rlhkv(k)
+	  do l=lmin,lremapk
+	    areafv = area(l,k)
+	    if( areafv .gt. 0. ) then
+	      hdkn(l,k) = hdkn(l,k) / areafv
+	    end if
+	  end do
+          do l=lmin,lremapk
+            h = hdkn(l,k)
+            if( h <= hmin ) then
+              write(6,*) 'error computing layer thickness'
+              write(6,*) 'no layer depth in node: ',k,l,lmax
+              write(6,*) 'depth: ',h
+              write(6,*) 'nlv,lmax: ',nlv,lmax
+              write(6,*) 'hlv: ',hlv
+              write(6,*) 'hldv: ',hldv
+              write(6,*) 'additional information available in fort.666'
+              call check_set_unit(666)
+              call check_node(k)
+              call check_elems_around_node(k)
+              stop 'error stop setdepth: no layer in node'
+            end if
+          end do
+	end do
+
+c----------------------------------------------------------------
+c echange nodal values
+c----------------------------------------------------------------
+
+	if( shympi_partition_on_nodes() ) then
+	  !call shympi_comment('exchanging hdkn')
+	  call shympi_exchange_3d_node(hdkn)
+	  !call shympi_barrier
+	end if
+
+c----------------------------------------------------------------
+c end of routine
+c----------------------------------------------------------------
+
+	return
+   77	continue
+	write(6,*) 'last layer negative: ',hlast
+	write(6,*) 'levdim,lmax: ',levdim,lmax
+	write(6,*) 'ie,ii,k: ',ie,ii,k
+	write(6,*) 'htot,hm: ',htot,hm
+	write(6,*) 'hm3v  ',(hm3v(ii,ie),ii=1,3)
+	write(6,*) 'hlv   ',(hlv(l),l=1,levdim)
+	write(6,*) 'hldv  ',(hldv(l),l=1,levdim)
+	stop 'error stop setdepth: last layer negative'
+	end
+
+c*****************************************************************	
+
+	subroutine remap_hydro_vertical
+
+c remap (here it means only recompute) vertical velocities
+c
+c wlnv (dvol)   aux array for volume difference
+c vv            aux array for area
+
+	use mod_bound_geom
+	use mod_geom_dynamic
+	use mod_bound_dynamic
+	use mod_hydro_vel
+	use mod_hydro
+        use mod_layer_thickness
+	use evgeom
+	use levels
+	use basin
+	use shympi
+	use zadapt
+
+	implicit none
+
+	logical debug
+	integer k,ie,ii,kk,l,lmin,lmiss,lmink,lremapk
+	integer jlevel,ilevel,rlevel
+        integer ibc,ibtyp
+	real aj,wbot,wdiv,ff,atop,abot,wfold
+	real b,c
+	real am,az,azt,azpar,ampar
+	real ffn,ffo
+	real volo,voln,dt,dvdt
+	real, allocatable :: vf(:,:)
+	real, allocatable :: va(:,:)
+        double precision,dimension(nlvdi) :: wein,weio
+c statement functions
+
+	logical is_zeta_bound
+	real volnode
+
+	!logical isein
+        !isein(ie) = iwegv(ie).eq.0
+
+c 2d -> nothing to be done
+
+	wlnv(0:(nlvdi-1),:) = wlnv(0:(nlvdi-1),:) * real(iskremap)
+	if( nlvdi == 1 ) return
+
+c initialize
+
+	call getazam(azpar,ampar)
+	az=azpar
+	am=ampar
+	azt = 1. - az
+	call get_timestep(dt)
+
+	allocate(vf(nlvdi,nkn),va(nlvdi,nkn))
+	vf = 0.
+	va = 0.
+
+c compute difference of velocities for each layer
+c
+c f(ii) > 0 ==> flux into node ii
+c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
+
+	do ie=1,nel
+
+	 !if( isein(ie) ) then		!FIXME	
+	  aj=4.*ev(10,ie)		!area of triangle / 3
+	  rlevel = rlhv(ie)
+	  ilevel = ilhv(ie)
+	  weio = 0.; wein = 0.
+	  call get_zadaptive_weights(ie,wein,+1)
+          call get_zadaptive_weights(ie,weio,-1)
+
+	  do ii=1,3
+
+  	    kk=nen3v(ii,ie)
+            b = ev(ii+3,ie)
+            c = ev(ii+6,ie)	  
+	    lremapk = min(rlhkv(kk),ilevel)
+
+	    !configuration may be changed between
+	    !time^{n+1} and time^{n} due to element insertion/removal:
+	    !we treat separately time level t^{n+1} and t^{n}	    
+	    lmink = jlhev(ii,ie)	! t^{n+1}
+	    jlevel = jlhv(ie)
+	    do l=lmink,lremapk
+              !element with non conformal edge
+	      if (l.eq.jlevel .and. jlevel.gt.lmink) then
+		ffn = (utlnv(jlevel,ie)*b + vtlnv(jlevel,ie)*c)*wein(l)
+                !ffo = (utlov(jlevel,ie)*b + vtlov(jlevel,ie)*c)*weio(l)
+	      !general case for inferior layers
+	      !or conformal edge
+	      else
+	        ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
+                !ffo = utlov(l,ie)*b + vtlov(l,ie)*c	
+	      end if
+              ff = ffn * az
+              vf(l,kk) = vf(l,kk) + 3. * aj * ff
+              va(l,kk) = va(l,kk) + aj
+	    end do
+
+	    lmink = jlheov(ii,ie)       ! t^{n}  
+	    jlevel = jlhov(ie)  
+            do l=lmink,lremapk
+              !element with non conformal edge
+              if (l.eq.jlevel .and. jlevel.gt.lmink) then
+                !ffn = (utlnv(jlevel,ie)*b + vtlnv(jlevel,ie)*c)*wein(l)
+                ffo = (utlov(jlevel,ie)*b + vtlov(jlevel,ie)*c)*weio(l)
+              !general case for inferior layers
+              !or conformal edge
+              else
+                !ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
+                ffo = utlov(l,ie)*b + vtlov(l,ie)*c
+              end if
+              ff = ffo * azt
+              vf(l,kk) = vf(l,kk) + 3. * aj * ff
+              !va(l,kk) = va(l,kk) + aj
+            end do
+	      
+	  end do
+	 !end if		
+	end do
+
+	if( shympi_partition_on_elements() ) then
+          !call shympi_comment('shympi_elem: exchange vf,va')
+          call shympi_exchange_and_sum_3d_nodes(vf)
+          call shympi_exchange_and_sum_3d_nodes(va)
+	end if
+
+c from vel difference get absolute velocity (w_bottom = 0)
+c	-> wlnv(nlv,k) is already in place !
+c	-> wlnv(nlv,k) = 0 + wlnv(nlv,k)
+c w of bottom of last layer must be 0 ! -> shift everything up
+c wlnv(nlv,k) is always 0
+c
+c dividing wlnv [m**3/s] by area [vv] gives vertical velocity
+c
+c in va(l,k) is the area of the upper interface: a(l) = a_i(l-1)
+c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
+
+	do k=1,nkn
+	  lremapk = rlhkv(k)
+	  lmin = jlhkv(k)
+	  debug = k .eq. 0
+	  abot = 0.
+	  do l=lremapk,lmin,-1
+	    atop = va(l,k)
+            voln = volnode(l,k,+1)
+            volo = volnode(l,k,-1)
+	    dvdt = (voln-volo)/dt
+	    wdiv = vf(l,k)
+	    !configuration may be changed:
+	    !removed layers are remapped on the new grid
+	    if (l.eq.lmin .and. lmin.gt.jlhkov(k)) then	    
+	      do lmiss=lmin-1,jlhkov(k),-1
+	        dvdt = dvdt - volnode(lmiss,k,-1)/dt
+	        wdiv = wdiv + vf(lmiss,k)
+	      end do
+	    end if	    
+	    !wfold = azt * (atop*wlov(l-1,k)-abot*wlov(l,k))
+	    !wlnv(l-1,k) = wlnv(l,k) + (wdiv-dvdt+wfold)/az
+	    wlnv(l-1,k) = wlnv(l,k) + wdiv - dvdt
+	    abot = atop
+	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
+	    if (l.eq.lmin) then
+              wlnv(lmin-1,k) = 0.   ! ensure no flux across surface - is very small
+	    end if  
+	  end do
+	end do
+
+	do k=1,nkn
+	  lremapk = rlhkv(k)
+	  lmin = jlhkv(k)
+	  debug = k .eq. 0
+	  do l=lmin+1,lremapk
+	    atop = va(l,k)
+	    if( atop .gt. 0. ) then
+	      wlnv(l-1,k) = wlnv(l-1,k) / atop
+	      if( debug ) write(6,*) k,l,atop,wlnv(l-1,k)
+	    end if
+	  end do
+	end do
+
+c set w to zero at open boundary nodes (new 14.08.1998)
+c
+c FIXME	-> only for ibtyp = 1,2 !!!!
+
+	do k=1,nkn
+          !if( is_external_boundary(k) ) then	!bug fix 10.03.2010
+          if( is_zeta_bound(k) ) then
+            lremapk = rlhkv(k)		  
+	    wlnv(0:lremapk,k) = 0.
+          end if
+	end do
+
+	deallocate(vf,va)
+
+	if( shympi_partition_on_nodes() ) then
+	  !call shympi_comment('exchanging wlnv')
+          call shympi_exchange_3d0_node(wlnv)
+	  !call shympi_barrier
+	end if
+
+	end
+
+c*****************************************************************	  
+
+	subroutine remap_ttov
+
+c transforms transports to velocities
+
+	use mod_layer_thickness
+	use mod_hydro_vel
+	use mod_hydro
+	use levels
+	use zadapt
+
+	implicit none
+
+	if( .not. mod_layer_thickness_is_initialized() ) then
+	  write(6,*) 'layer thickness is not initialized'
+	  stop 'error stop ttov: no layerthickness'
+	end if
+
+	ulnv = ulnv * real(iseremap)
+	vlnv = vlnv * real(iseremap)
+	where( hdenv > 0. .and. iseremap .eq. 0)
+	  ulnv = utlnv / hdenv
+	  vlnv = vtlnv / hdenv
+	end where
+
+	end
+
+c*****************************************************************
+
+	subroutine remap_uvtopr
+
+c transforms velocities to nodal values
+
+	use mod_geom_dynamic
+	use mod_hydro_print
+	use mod_hydro_vel
+	use evgeom
+	use levels
+	use basin
+	use shympi
+	use zadapt
+
+	implicit none
+
+	integer ie,l,lmiss,k,ii
+	integer lmax,lmin,lremapk,lmink
+	real aj
+	!real vv(nlvdi,nkn)
+	real, allocatable :: vv(:,:)
+
+	allocate(vv(nlvdi,nkn))
+	uprv = uprv * real(iskremap)
+	vprv = vprv * real(iseremap)
+	vv   = 0.
+
+c baroclinic part
+
+	do ie=1,nel
+	  if ( iwegv(ie) /= 0 ) cycle
+          lmax = ilhv(ie)
+	  lmin = jlhv(ie)
+	  aj=ev(10,ie)
+          do ii=1,3
+	    k=nen3v(ii,ie)
+	    lremapk = min(rlhkv(k),lmax)
+	    lmink = jlhev(ii,ie)
+	    do l=lmink,lremapk
+	      vv(l,k)=vv(l,k)+aj
+	      !element with non-conformal edge
+	      if (l.eq.lmin .and. lmin.gt.lmink) then	      
+	        uprv(l,k)=uprv(l,k)+aj*ulnv(lmin,ie)
+		vprv(l,k)=vprv(l,k)+aj*vlnv(lmin,ie)		
+	      !standard element	
+              else
+                uprv(l,k)=uprv(l,k)+aj*ulnv(l,ie)
+                vprv(l,k)=vprv(l,k)+aj*vlnv(l,ie)      		      
+	      end if
+	    end do
+	  end do
+	end do
+
+        !call shympi_comment('shympi_elem: exchange uprv, vprv')
+        call shympi_exchange_and_sum_3d_nodes(uprv)
+        call shympi_exchange_and_sum_3d_nodes(vprv)
+        call shympi_exchange_and_sum_3d_nodes(vv)
+
+	where ( vv > 0. ) 	!this automatically select only node 
+	  uprv = uprv / vv      !to be remapped
+	  vprv = vprv / vv
+	end where
+
+	call shympi_exchange_3d_node(uprv)
+	call shympi_exchange_3d_node(vprv)
+
+c vertical velocities -> we compute average over one layer
+
+	do l=1,nlv		!FIXME not-optmized
+	  wprv(l,:)=0.5*(wlnv(l,:)+wlnv(l-1,:))
+	end do
+
+	deallocate(vv)
+
+	end
+
+c*****************************************************************
+
+	subroutine remap_velocities
+
+c computes horizontal velocities from zenv, utlnv, vtlnv, hdenv
+
+	implicit none
+
+	call remap_ttov			!velocities ulnv/vlnv
+	call remap_uvtopr		!nodal values uprv/vprv/wprv
+
+	end
+
+c*****************************************************************	
 
         subroutine scal_remap_removal(nlvdi,cn,hn,lminknv,lminkov)
 
@@ -644,6 +1261,24 @@ c	  else
 
 	end
 
+c******************************************************************
+
+        subroutine init_zadaptation
+
+        use levels, only : nlvdi
+        use basin, only : nkn,nel		
+	use zadapt
+
+	implicit none		
+
+	allocate(iseremap(nlvdi,nel))
+	allocate(iskremap(nlvdi,nkn))
+
+	iseremap = 1
+	iskremap = 1
+
+	end
+
 c*****************************************************************
 
         subroutine zadaptation
@@ -651,14 +1286,13 @@ c*****************************************************************
 c adaptation routines for z-layer coordinate driven free-surface 
 c movement:
 c 1/ change the vertical grid set_jlhv, set_jlhkv,set_area
-c 2/ remap variable           make_new_depth,remap_hydro,remap_scalar
+c 2/ remap variable           remap_new_depth,remap_hydro,remap_scalar
+c			      remap_velocities,remap_hydro_vertical		
 c important: set_area must be always called immediatly after set_jlhkv
 
 	use basin
 
 	implicit none
-
-        real dzeta(nkn)
 
 c----------------------------------------------------------------
 c change vertical grid
@@ -673,10 +1307,10 @@ c remap all variables
 c----------------------------------------------------------------
 	
 	call remap_scalar            !remap ts vars (need old depth)	
-	call make_new_depth	     !remap depth vars: hdenv,hdknv
+	call remap_new_depth	     !remap depth vars: hdenv,hdknv
 	call remap_hydro             !reamp hydro vars (need new depth)
-	call hydro_vertical(dzeta)   !remap vertical velocity 
-	call compute_velocities      !re-compute velocities (elements and nodes)
+	call remap_hydro_vertical    !remap vertical velocity 
+	call remap_velocities        !re-compute velocities (elements and nodes)
 
 c---------------------------------------------------------
 c end of routine

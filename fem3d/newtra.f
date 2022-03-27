@@ -255,10 +255,11 @@ c baroclinic part
 	      vv(l,k)=vv(l,k)+aj
 	      uprv(l,k)=uprv(l,k)+aj*ulnv(l,ie)
 	      vprv(l,k)=vprv(l,k)+aj*vlnv(l,ie)
-	      !case of an element with missing top less layers
+	      !element with non-conformal edge
 	      if (l.eq.lmin .and. lmin.gt.jlhev(ii,ie)) then	      
 		do lmiss=lmin-1,jlhev(ii,ie),-1   
 	          uprv(lmiss,k)=uprv(lmiss,k)+aj*ulnv(lmin,ie)
+                  vprv(lmiss,k)=vprv(lmiss,k)+aj*vlnv(lmin,ie)		  
                   vv(lmiss,k)=vv(lmiss,k)+aj    		  
 		end do
 	      end if

@@ -466,7 +466,6 @@ c*****************************************************************
         do l=jlevel,ilevel
 	  hdv(l) = hdeov(l,ie)		!use old time step -> FIXME
           !haver(l) = 0.5 * ( hdeov(l,ie) + hdenv(l,ie) )
-          !haver(l) = rso*hdenv(l,ie) + rsot*hdeov(l,ie)   !lrp
 	  do ii=1,3
 	    k=kn(ii)
 	    jlevelk=jlhev(ii,ie)
@@ -502,7 +501,8 @@ c*****************************************************************
 
         !element with non conformal edge
         !compute weights for horizontal advection:
-        call get_zadaptive_weights(ie,wein,weio)       	
+        call get_zadaptive_weights(ie,wein,+1)       	
+        call get_zadaptive_weights(ie,weio,-1)
 
 	do l=ilevel+1,nlv
 	  presentl(l,:) = 0.

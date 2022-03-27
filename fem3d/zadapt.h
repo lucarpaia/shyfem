@@ -33,3 +33,11 @@
         common /rmin_gridtop/rmin_gridtop
 
         save /rmin_gridmov/,/rmin_gridtop/
+
+        integer iskremap(nlvdim,nkndim)
+        common /iskremap/iskremap
+	save /iskremap/
+
+        integer iseremap(nlvdim,neldim)
+        common /iseremap/iseremap
+        save /iseremap/

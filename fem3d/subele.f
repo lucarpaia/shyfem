@@ -920,7 +920,7 @@ c sets up depth array for nodes
 
         logical bdebug
         logical bsigma
-	integer k,l,lmiss,ie,ii
+	integer k,l,ie,ii
 	integer lmax,lmin,lmink,n,nlev,nsigma,levmin
 	real hfirst,hlast,h,htot,z,zmed,hm
 	real hacu,hlevel,hsigma,hsig

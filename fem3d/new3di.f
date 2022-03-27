@@ -408,7 +408,6 @@ c-----------------------------------------------------------------
         call setuvd			!set velocities in dry areas
 	call baro2l                     !set new transports in dry areas
 
-	!call set_area !lrp (see if really needed)
         call make_new_depth
 	call check_volume		!checks for negative volume 
         call arper
@@ -1670,7 +1669,8 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	  ilevel = ilhv(ie)
           jlevel = jlhv(ie)
 	  weio = 0.; wein = 0.
-	  call get_zadaptive_weights(ie,wein,weio)
+	  call get_zadaptive_weights(ie,wein,+1)
+          call get_zadaptive_weights(ie,weio,-1)	  
 	  do l=jlevel,ilevel
 	    do ii=1,3
 		kk=nen3v(ii,ie)
