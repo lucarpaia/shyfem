@@ -70,6 +70,7 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 01.04.2021	ggu	new routine handle_gotm_init()
 c 01.04.2021	ggu	debug code - look for iudbg
+c 28.03.2022    lrp     introduce z-adaptive layers
 c
 c**************************************************************
 

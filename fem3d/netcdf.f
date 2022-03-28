@@ -63,6 +63,7 @@ c 16.05.2019	ggu	new version of nc_rewrite_3d_reg(), new nc_set_quiet()
 c 08.01.2020	ggu	allow for double user data
 c 29.01.2020	ggu	insert extra information for error message
 c 22.04.2021	ggu	accept short data type (NF_SHORT)
+c 28.03.222     lrp     write vertical velocity
 c
 c notes :
 c

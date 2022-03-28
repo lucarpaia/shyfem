@@ -154,6 +154,7 @@ c 27.03.2020	ggu	cleaned new nudging routines
 c 17.09.2020    ggu     renamed sigma to sigma_stp
 c 24.03.2021    ggu     more diagnostic output in ts_dia()
 c 31.05.2021    ggu     changes in ts_dia(), debug section
+c 28.03.2022    lrp     introduce z-adaptive layers
 c
 c notes :
 c

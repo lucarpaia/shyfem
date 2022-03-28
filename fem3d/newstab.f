@@ -65,6 +65,7 @@ c 16.04.2018	ggu	use also ilin to compute stability
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 06.11.2019	ggu	femtime eliminated
 c 30.03.2021	ggu	better error output
+c 28.03.2022    lrp     introduce z-adaptive layers
 c
 c*****************************************************************
 c*****************************************************************

@@ -26,6 +26,13 @@
 
 c routines for handling z-adaptive layers
 c
+c revision log :
+c
+c 28.03.2022    lrp     introduce z-adaptive layers
+c
+c notes:
+c this file is used also in:      
+c      
 c	compute_zadaptive_info (subele.f)
 c	get_zadaptivelayer_thickness (subele.f)
 c	init_zadaptation (shyfem.f)

@@ -68,6 +68,7 @@
 ! 10.02.2019	ggu	bug fix for FPE (GGUZ0)
 ! 12.02.2019	ccf	stress computed in substress.f
 ! 11.11.2020	ggu	get_ice_all() renamed to get_ice_cover_all()
+! 28.03.2022    lrp     introduce z-adaptive layers
 !
 !**************************************************************
 c DOCS  START   S_wave

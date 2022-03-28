@@ -122,6 +122,7 @@ c 14.02.2019	ggu	changed VERS_7_5_56
 c 16.02.2019	ggu	changed VERS_7_5_60
 c 01.04.2021	ggu	dimension check in dep3dnod()
 c 02.06.2021	ggu	computing depth at node run over nkn_inner
+c 28.03.2022    lrp     introduce z-adaptive layers
 c
 c****************************************************************
 

@@ -91,6 +91,7 @@ c 10.12.2019	ggu	ice cover introduced, handle ice-water sensible heat
 c 11.11.2020	ggu	new ice model integrated, cleaned, documented
 c 13.11.2020	ggu	bug fix: correct rain from [m/s] to [mm/d]
 c 14.11.2020	ggu	allow for ice and other heat fluxes to coexist
+c 28.03.2022    lrp     introduce z-adaptive layers
 c
 c notes :
 c

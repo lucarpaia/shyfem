@@ -269,6 +269,7 @@ c 30.03.2021	ggu	copy to old into shyfem routine
 c 30.04.2021    clr&ggu adapted for petsc solver
 c 31.05.2021    ggu	eleminated bug for closing in hydro_transports_final()
 c 17.07.2021    ggu	introduced ifricv and call to turbine()
+c 28.03.2022    lrp	introduce z-adaptive layers & write vertical velocity
 c
 c******************************************************************
 

@@ -25,6 +25,7 @@
 
 ! revision log :
 !
+c 28.03.2022    lrp     introduce z-adaptive layers
 
         real rmin_gridmov
         common /rmin_gridmov/rmin_gridmov
