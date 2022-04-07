@@ -406,7 +406,7 @@ c functions
 	end do
 
 	vol0 = volnode(1,k,mode)
-	area = areanode(1,k)
+	area = areanode(1,k,mode)
 
 	end
 

@@ -677,14 +677,14 @@ c checks mass conservation of single boxes (finite volumes)
 	include 'mkonst.h'
 
 	logical berror,bdebug
-	integer ie,l,ii,k,lmax,mode,ks,kss
+	integer ie,l,ii,k,lmin,lmax,lrmp,lmerge,mode,ks,kss
 	integer levdbg
 	real am,az,azt,dt,azpar,ampar
 	real areafv,b,c
 	real ffn,ffo,ff
 	real vmax,vrmax,vdiv,vdiff,vrdiff
 	real abot,atop
-	real volo,voln
+	real volo,voln,volr
 	real ubar,vbar
 	real vbmax,vlmax,vrbmax,vrlmax
 	real vrwarn,vrerr
@@ -693,6 +693,7 @@ c checks mass conservation of single boxes (finite volumes)
 	double precision vtotmax,vvv,vvm
 	real, allocatable :: vf(:,:)
 	real, allocatable :: va(:,:)
+        integer, allocatable :: ltop(:)
 
 	real volnode,areanode,getpar
 
@@ -724,6 +725,23 @@ c----------------------------------------------------------------
 	allocate(vf(nlvdi,nkn),va(nlvdi,nkn))
 	vf = 0.
 	va = 0.
+        
+!Special treatment in case of z-adaptation:
+!
+!1/node k shares element where a configuration change occured 
+!  between time^{n} and time^{n+1} (element insertion/removal)
+!  mass-conservation check on the TopBox, merge of all remapped layers: 
+!  TopBox = max(rlhv) + ... + jlhkv	
+!2/node k lies on a non-conformal edge (shares element with different
+!  number of layers); mass-conservation check on the TopBox, merge
+!  of all layers:
+!  TopBox = max(jlhv) + ... + jlhkv
+!	
+!We avoid treating separately t^n and t^{n+1} looping over all
+!layers l=1,lmax; also not-existing ones which, anyway, give 0 contribution 
+
+        allocate(ltop(nkn))			!layer index for TopBox
+        ltop = 0
 
 c----------------------------------------------------------------
 c compute horizontal divergence
@@ -731,7 +749,10 @@ c----------------------------------------------------------------
 
         do ie=1,nel
           areafv = 4. * ev(10,ie)               !area of triangle / 3
+	  lmin = jlhv(ie)
           lmax = ilhv(ie)
+	  lrmp = rlhv(ie)
+	  lmerge  = max(lrmp,lmin)
           do l=1,lmax
             do ii=1,3
                 k=nen3v(ii,ie)
@@ -742,6 +763,7 @@ c----------------------------------------------------------------
                 ff = ffn * az + ffo * azt
                 vf(l,k) = vf(l,k) + 3. * areafv * ff
                 va(l,k) = va(l,k) + areafv
+		ltop(k) = max(ltop(k),lmerge)
             end do
           end do
         end do
@@ -755,13 +777,14 @@ c----------------------------------------------------------------
 	ks = 0
 	if( ks .gt. 0 ) then
 	  k = ks
+	  lmin = jlhkv(k)
 	  lmax = ilhkv(k)
 	  write(77,*) '-------------'
-	  write(77,*) k,lmax
-	  write(77,*) (vf(l,k),l=1,lmax)
-	  write(77,*) (wlnv(l,k),l=1,lmax)
+	  write(77,*) k,lmin,lmax
+	  write(77,*) (vf(l,k),l=lmin,lmax)
+	  write(77,*) (wlnv(l,k),l=lmin,lmax)
 	  vtotmax = 0.
-	  do l=1,lmax
+	  do l=lmin,lmax
 	    vtotmax = vtotmax + vf(l,k)
 	  end do
 	  write(77,*) 'from box: ',vtotmax
@@ -769,6 +792,7 @@ c----------------------------------------------------------------
 
 	vtotmax = 0.
 	do k=1,nkn
+	  lmin = jlhkv(k)
           lmax = ilhkv(k)
 	  abot = 0.
 	  vvv = 0.
@@ -801,14 +825,26 @@ c----------------------------------------------------------------
 	  bdebug = k .eq. kss
 	  if( bdebug ) write(78,*) '============================='
 	  berror = .false.
+	  lmin = jlhkv(k)
           lmax = ilhkv(k)
-	  do l=1,lmax
+	  do l=ltop(k),lmax
 	    voln = volnode(l,k,+1)
 	    volo = volnode(l,k,-1)
+	    volr = volo
 	    vdiv = vf(l,k)
 	    vdiff = voln - volo - vdiv * dt
+	    !merge top-layers
+	    if (l.eq.ltop(k)) then
+	      do lmerge=ltop(k)-1,1,-1
+                voln = volnode(lmerge,k,+1)
+                volo = volnode(lmerge,k,-1)
+		volr = volr + volo
+                vdiv = vf(lmerge,k)
+                vdiff = vdiff + voln - volo - vdiv * dt
+	      end do
+	    end if
 	    vdiff = abs(vdiff)
-	    vrdiff = vdiff / volo
+	    vrdiff = vdiff / volr
 	    vmax = max(vmax,vdiff)
 	    vrmax = max(vrmax,vrdiff)
 	    if( bdebug ) then
@@ -851,8 +887,9 @@ c----------------------------------------------------------------
 
 	  ubar = 0.
 	  vbar = 0.
+	  lmin = jlhv(ie)
           lmax = ilhv(ie)
-          do l=1,lmax
+          do l=lmin,lmax
 	    ubar = ubar + az * utlnv(l,ie) + azt * utlov(l,ie)
 	    vbar = vbar + az * vtlnv(l,ie) + azt * vtlov(l,ie)
 	  end do
@@ -874,11 +911,12 @@ c----------------------------------------------------------------
 	do k=1,nkn
 	 !if( is_inner(k) ) then
 	 if( .not. is_external_boundary(k) ) then
+	   lmin = jlhkv(k)
            lmax = ilhkv(k)
 	   voln = 0.
 	   volo = 0.
 	   qinput = 0.
-	   do l=1,lmax
+	   do l=lmin,lmax
 	     voln = voln + volnode(l,k,+1)
 	     volo = volo + volnode(l,k,-1)
 	     qinput = qinput + mfluxv(l,k)
@@ -926,6 +964,7 @@ c	vrlmax 		!relative error for each box
 	write(ninfo,*) 'mass_balance: ',vbmax,vlmax,vrbmax,vrlmax
 
 	deallocate(vf,va)
+        deallocate(ltop)
 
 c----------------------------------------------------------------
 c end of routine

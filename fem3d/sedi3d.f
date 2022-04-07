@@ -1789,7 +1789,7 @@ c initialization of conz from file
 	  DL = ddl(k)				!last layer thikness
 	  DL = dmin1(D,DL)
 	  if (lmax .eq. 1) DL = D
-          area = areanode(lmax,k)		!area of node
+          area = areanode(lmax,k,+1)		!area of node
 
           call getmd(u,v,UZ,CDIR)		!gets UZ, CDIR
           GD = gskm(k)				!gs50
@@ -4066,7 +4066,7 @@ c initialization of conz from file
             do i = 1,n
               kn = nodes(i)           !kn is number of neibor node
               l = ilhkv(kn)
-              area = areanode(l,kn)
+              area = areanode(l,kn,+1)
               saux = saux + kvalue(kn)*area
               aaux = aaux + area
             end do
@@ -4569,7 +4569,7 @@ c initialization of conz from file
 
         do k = 1,nkn
           lmax = ilhkv(k)                       !bottom layer
-          area = areanode(lmax,k)               !area of node
+          area = areanode(lmax,k,+1)            !area of node
 	  do is = 1,nscls
              if ( sload(k,is) < 0.d0 ) then
                if ( is <= nbcc ) then

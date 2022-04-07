@@ -126,6 +126,8 @@ c	  do l=jlhv(ie),ilhv(ie)
 c	  hdenv2reg = sqrt( hdenv(l,ie)**4 +max(hdenv(l,ie)**4,hzmin**4) )
 c          ulnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*utlnv(l,ie)/ hdenv2reg
 c          vlnv(l,ie) = sqrt(2.0)*hdenv(l,ie)*vtlnv(l,ie)/ hdenv2reg
+c	   utlnv(l,ie) = ulnv(l,ie) * hdenv(l,ie)
+c	   vtlnv(l,ie) = vlnv(l,ie) * hdenv(l,ie)
 c	  end do
 c	end do  
 

@@ -40,6 +40,7 @@
         integer, private, save :: nlv_area = 0
 
         real, allocatable, save :: areakv(:,:)
+        real, allocatable, save :: areakov(:,:)
 
 	contains
 
@@ -62,6 +63,7 @@
 
         if( nkn_area > 0 ) then
           deallocate(areakv)
+          deallocate(areakov)	  
         end if
 
         nkn_area = nkn
@@ -70,6 +72,7 @@
         if( nkn == 0 ) return
 
         allocate(areakv(nlv,nkn))
+        allocate(areakov(nlv,nkn))
 
         end subroutine mod_area_init
 

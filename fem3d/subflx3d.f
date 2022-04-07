@@ -314,7 +314,7 @@ c---------------------------------------------------------
 
 	lkmax = ilhkv(k)
 	do l=1,lkmax
-	  areal(l) = areanode(l,k)
+	  areal(l) = areanode(l,k,+1)
 	  dvol(l) = volnode(l,k,+1) - volnode(l,k,-1)
           transp(l,n) = 0.				!if on boundary
 	end do

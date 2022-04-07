@@ -404,7 +404,7 @@ c---------------------------------------------------------
 	  qlat = 0.
 	  qlong = 0.
 	  evap = 0.
-	  area = areanode(lmin,k)
+	  area = areanode(lmin,k,+1)
           if( isolp .eq. 0 .and. hdecay .le. 0. ) lmax = 1   
 
 	  !------------------------------------------------

@@ -485,7 +485,7 @@ c%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	   call copy_uvz		!copies new to old time level
 	   call nonhydro_copy   	!copies non hydrostatic pressure terms
 	   call copy_depth		!copies layer depth to old
-	   call copy_zadaptation	!copy top layer index
+	   call copy_zadaptation	!copies top layer index
 
 	   call offline(2)		!read from offline file
 	   call sp111(2)		!boundary conditions

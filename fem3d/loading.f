@@ -307,7 +307,7 @@ c---------------------------------------------------------
 
 	  areatot = 0.
           do k=1,nkn
-              areav(k) = areanode(k,mode)
+              areav(k) = areanode(k,mode,+1)
 	      volv(k) = volnode(layer,k,mode)
 	      areatot = areatot + areav(k)
           end do

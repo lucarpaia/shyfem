@@ -370,7 +370,7 @@ c local
 	call get_sigma_info(nlev,nsigma,hsigma)
 	bsigma = nsigma .gt. 0
 
-	rlhv = 0		! initialize 0: no config change
+	!rlhv = 0		! (moved to copy_zadaptation)
         iseremap = 1            ! initialize 1: no config change	
 
 c---------------------------------------------------------
@@ -466,7 +466,7 @@ c      for node k <-> (ii,ie) but only if k is not wet/dry
         call get_sigma_info(nlev,nsigma,hsigma)
         bsigma = nsigma .gt. 0
 
-        rlhkv = 0		  !initialize 0: no config change
+        !rlhkv = 0		  !(moved to copy_zadaptation)
 	iskremap = 1		  !initialize 1: no config change
 
         do k=1,nkn
@@ -542,15 +542,21 @@ c*****************************************************************
 
         subroutine copy_zadaptation
 
-c copies u/v/z to old time step
+c copies top layer index to old time step
+c copies areas to old time step
+c initialize remap index
 
         use levels
+	use mod_area
 
         implicit none
 
         jlhov  = jlhv
         jlhkov = jlhkv
 	jlheov = jlhev
+	rlhv   = 0 	!initialize 0: no config change
+	rlhkv  = 0 	!initialize 0: no config change
+	areakov = areakv
 
         end
 
@@ -570,6 +576,7 @@ c layer is removed/inserted
 
 	integer ie,l,lminnv,lminov
 	real htot  			 !total depth of inserted layers
+	real utswap,vtswap		 !swap variable for transports
 
         do ie=1,nel
 
@@ -590,10 +597,12 @@ c layer is removed/inserted
 	    htot = 0.0
 	    do l=lminov,lminnv,-1 
               htot = htot + hdenv(l,ie)   
-            end do  
+            end do
+	    utswap = utlnv(lminov,ie)
+	    vtswap = vtlnv(lminov,ie)
 	    do l=lminov,lminnv,-1 	 !loop over inserted layers 
-	      utlnv(l,ie) = utlnv(lminov,ie) * hdenv(l,ie)/htot
-	      vtlnv(l,ie) = vtlnv(lminov,ie) * hdenv(l,ie)/htot 
+	      utlnv(l,ie) = utswap * hdenv(l,ie)/htot
+	      vtlnv(l,ie) = vtswap * hdenv(l,ie)/htot
             end do	      
 
 c	  else				 !no insertion/removal happened 	
@@ -846,7 +855,7 @@ c vv            aux array for area
 
 	logical debug
 	integer k,ie,ii,kk,l,lmin,lmiss,lmink,lremapk
-	integer jlevel,ilevel,rlevel
+	integer jlevel,ilevel
         integer ibc,ibtyp
 	real aj,wbot,wdiv,ff,atop,abot,wfold
 	real b,c
@@ -890,7 +899,6 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 
 	 !if( isein(ie) ) then		!FIXME	
 	  aj=4.*ev(10,ie)		!area of triangle / 3
-	  rlevel = rlhv(ie)
 	  ilevel = ilhv(ie)
 	  weio = 0.; wein = 0.
 	  call get_zadaptive_weights(ie,wein,+1)
@@ -910,14 +918,12 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	    jlevel = jlhv(ie)
 	    do l=lmink,lremapk
               !element with non conformal edge
-	      if (l.eq.jlevel .and. jlevel.gt.lmink) then
+	      if (l.le.jlevel .and. jlevel.gt.lmink) then
 		ffn = (utlnv(jlevel,ie)*b + vtlnv(jlevel,ie)*c)*wein(l)
-                !ffo = (utlov(jlevel,ie)*b + vtlov(jlevel,ie)*c)*weio(l)
 	      !general case for inferior layers
 	      !or conformal edge
 	      else
 	        ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
-                !ffo = utlov(l,ie)*b + vtlov(l,ie)*c	
 	      end if
               ff = ffn * az
               vf(l,kk) = vf(l,kk) + 3. * aj * ff
@@ -928,13 +934,11 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	    jlevel = jlhov(ie)  
             do l=lmink,lremapk
               !element with non conformal edge
-              if (l.eq.jlevel .and. jlevel.gt.lmink) then
-                !ffn = (utlnv(jlevel,ie)*b + vtlnv(jlevel,ie)*c)*wein(l)
+              if (l.le.jlevel .and. jlevel.gt.lmink) then
                 ffo = (utlov(jlevel,ie)*b + vtlov(jlevel,ie)*c)*weio(l)
               !general case for inferior layers
               !or conformal edge
               else
-                !ffn = utlnv(l,ie)*b + vtlnv(l,ie)*c
                 ffo = utlov(l,ie)*b + vtlov(l,ie)*c
               end if
               ff = ffo * azt
@@ -984,25 +988,12 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    end if	    
 	    !wfold = azt * (atop*wlov(l-1,k)-abot*wlov(l,k))
 	    !wlnv(l-1,k) = wlnv(l,k) + (wdiv-dvdt+wfold)/az
-	    wlnv(l-1,k) = wlnv(l,k) + wdiv - dvdt
+	    wlnv(l-1,k) = wlnv(l,k) + (wdiv - dvdt)/atop
 	    abot = atop
 	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
 	    if (l.eq.lmin) then
               wlnv(lmin-1,k) = 0.   ! ensure no flux across surface - is very small
 	    end if  
-	  end do
-	end do
-
-	do k=1,nkn
-	  lremapk = rlhkv(k)
-	  lmin = jlhkv(k)
-	  debug = k .eq. 0
-	  do l=lmin+1,lremapk
-	    atop = va(l,k)
-	    if( atop .gt. 0. ) then
-	      wlnv(l-1,k) = wlnv(l-1,k) / atop
-	      if( debug ) write(6,*) k,l,atop,wlnv(l-1,k)
-	    end if
 	  end do
 	end do
 
@@ -1317,6 +1308,7 @@ c----------------------------------------------------------------
 	call remap_new_depth	     !remap depth vars: hdenv,hdknv
 	call remap_hydro             !reamp hydro vars (need new depth)
 	call remap_hydro_vertical    !remap vertical velocity 
+        call mass_conserve           !check mass balance
 	call remap_velocities        !re-compute velocities (elements and nodes)
 
 c---------------------------------------------------------

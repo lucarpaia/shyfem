@@ -32,3 +32,6 @@
         common /areakv/areakv
 	save /areakv/
 
+        real areakov(nlvdim,nkndim)
+        common /areakov/areakov
+        save /areakov/

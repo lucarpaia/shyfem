@@ -73,7 +73,7 @@ c function depnode(l,k,mode)
 c       returns depth of node k on level l
 c function volnode(l,k,mode)
 c       returns volume of node k on level l
-c function areanode(l,k)
+c function areanode(l,k,mode)
 c       returns area of node k on level l
 c subroutine setdepth(levdim,hdkn,hden,zenv,area)
 c       sets up depth array for nodes
@@ -762,13 +762,13 @@ c returns volume of node k on level l
 
 	real depnode,areanode
 
-	volnode = depnode(l,k,mode) * areanode(l,k)
+	volnode = depnode(l,k,mode) * areanode(l,k,mode)
 
 	end
 
 c***********************************************************
 
-	function areanode(l,k)
+	function areanode(l,k,mode)
 
 c returns area of node k on level l
 
@@ -779,8 +779,16 @@ c returns area of node k on level l
 	real areanode
 	integer l
 	integer k
+        integer mode
 
-	areanode = areakv(l,k)
+        if( mode .gt. 0 ) then
+          areanode = areakv(l,k)
+        else if( mode .lt. 0 ) then
+          areanode = areakov(l,k)
+        else
+          write(6,*) 'mode = 0 not implemented'
+          stop 'error stop areanode'
+        end if
 
 	end
 
@@ -1279,7 +1287,7 @@ c computes content of scalar at node k (with given depth)
  
           nlev = ilhkv(k)
           do l=1,nlev
-            total = total + depth * areanode(l,k) * scal(l,k)
+            total = total + depth * areanode(l,k,+1) * scal(l,k)
           end do
  
         scalcontkh = total
