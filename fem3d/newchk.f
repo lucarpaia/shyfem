@@ -108,6 +108,7 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 29.08.2020	ggu	added new routine check_nodes_around_node()
 c 27.03.2021	ggu	some femtime.h eliminated (not all), cleanup
 c 31.05.2021	ggu	write time line in node/elem debug
+c 28.03.2022    lrp     introduce z-adaptive layers
 c
 c*************************************************************
 
@@ -887,9 +888,8 @@ c----------------------------------------------------------------
 
 	  ubar = 0.
 	  vbar = 0.
-	  lmin = jlhv(ie)
           lmax = ilhv(ie)
-          do l=lmin,lmax
+          do l=1,lmax
 	    ubar = ubar + az * utlnv(l,ie) + azt * utlov(l,ie)
 	    vbar = vbar + az * vtlnv(l,ie) + azt * vtlov(l,ie)
 	  end do
@@ -911,12 +911,11 @@ c----------------------------------------------------------------
 	do k=1,nkn
 	 !if( is_inner(k) ) then
 	 if( .not. is_external_boundary(k) ) then
-	   lmin = jlhkv(k)
            lmax = ilhkv(k)
 	   voln = 0.
 	   volo = 0.
 	   qinput = 0.
-	   do l=lmin,lmax
+	   do l=1,lmax
 	     voln = voln + volnode(l,k,+1)
 	     volo = volo + volnode(l,k,-1)
 	     qinput = qinput + mfluxv(l,k)
