@@ -929,7 +929,7 @@ c sets up depth array for nodes
 
         logical bdebug
         logical bsigma
-	integer k,l,ie,ii
+	integer k,l,lmiss,ie,ii
 	integer lmax,lmin,lmink,n,nlev,nsigma,levmin
 	real hfirst,hlast,h,htot,z,zmed,hm
 	real hacu,hlevel,hsigma,hsig
@@ -1050,6 +1050,11 @@ c	  -------------------------------------------------------
           do l=lmin,ladapt(4) 
 	    do ii=1,n
               hzad = min(htot,hadapt(ii)) + zenv(ii,ie)	  
+	      if (l.eq.lmin) then		!non-conformal edge
+	      do lmiss=lmin-1,jlhev(ii,ie),-1
+	        cadapt(lmin,ii) = cadapt(lmin,ii) + cadapt(lmiss,ii)
+	      end do
+      	      end if
 	      call get_zadaptivelayer_thickness(l,lmin,hzad,ladapt(ii),
      +			cadapt(l,ii),hldv(l),hlv(l-1),zenv(ii,ie),hnod)
 	      hden(l,ie) = hden(l,ie) + hnod  
