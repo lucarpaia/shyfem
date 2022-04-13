@@ -616,7 +616,7 @@ c*****************************************************************
 
 	subroutine remap_new_depth
 
-c shell (helper) for setdepth
+c shell (helper) for remapdepth
 
 	use mod_layer_thickness
 	use mod_area
@@ -710,7 +710,7 @@ c	  -------------------------------------------------------
             if( lremapk .eq. lmax ) then
               hlast = htot - hlv(lmax-1)
               !if( hlast .lt. 0. ) goto 77  !lrp: remove this line	      
-              hdkn(lmax,k) = hdkn(lmax,k) + areafv * (hlast-hldv(l))
+	      hdkn(lmax,k) = hdkn(lmax,k) + areafv * (hlast-hldv(lremapk))
             end if
 
 	    !do l=1,lmax
@@ -722,7 +722,7 @@ c	  -------------------------------------------------------
 	    !    write(6,*) 'hlv: ',hlv
 	    !    write(6,*) 'hldv: ',hldv
 	    !    write(6,*) 'hdkn: ',hdkn(:,k)
-	    !    stop 'error stop setdepth: no volume in node'
+	    !    stop 'error stop remapdepth: no volume in node'
 	    !  end if
 	    !end do
 
@@ -749,7 +749,7 @@ c	  -------------------------------------------------------
 	  if( lremap .eq. lmax ) then
   	    hlast = htot - hlv(lmax-1)
 	    if( hlast .lt. 0. ) goto 77
-	    hden(lmax,ie) = hlast
+	    hden(lmax,ie) = hden(lmax,ie) + (hlast-hldv(lremap))
 	  end if
 
           do l=lmin,lremap
@@ -762,7 +762,7 @@ c	  -------------------------------------------------------
               call check_set_unit(666)
               call check_elem(ie)
               call check_nodes_in_elem(ie)
-              stop 'error stop setdepth: no layer in element'
+              stop 'error stop remapdepth: no layer in element'
             end if
           end do
 
@@ -799,7 +799,7 @@ c----------------------------------------------------------------
               call check_set_unit(666)
               call check_node(k)
               call check_elems_around_node(k)
-              stop 'error stop setdepth: no layer in node'
+              stop 'error stop remapdepth: no layer in node'
             end if
           end do
 	end do
@@ -827,7 +827,7 @@ c----------------------------------------------------------------
 	write(6,*) 'hm3v  ',(hm3v(ii,ie),ii=1,3)
 	write(6,*) 'hlv   ',(hlv(l),l=1,levdim)
 	write(6,*) 'hldv  ',(hldv(l),l=1,levdim)
-	stop 'error stop setdepth: last layer negative'
+	stop 'error stop remapdepth: last layer negative'
 	end
 
 c*****************************************************************	
