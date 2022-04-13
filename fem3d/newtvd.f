@@ -815,7 +815,7 @@ c ------------------- l+2 -----------------------
 
 	  vflux(l,ii) = w * conf
 	 end do
-	 vflux(lmin(ii)-1,ii) = 0.
+	 vflux(lmin(ii)-1,ii) = wvel(lmin(ii)-1,ii) * cl(lmin(ii),ii)
 	 vflux(lmax,ii) = 0.
 	end do
 

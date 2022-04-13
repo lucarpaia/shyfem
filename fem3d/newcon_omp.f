@@ -521,6 +521,9 @@ c*****************************************************************
 ! 	to the vertical velocity
 
 	do ii=1,3
+	  k=kn(ii)
+          jlevelk = jlhev(ii,ie)
+	  wl(jlevelk-1,ii) = wlnv(jlevelk-1,k)  
 	  wl(ilevel,ii) = 0.
 	end do
 
@@ -649,7 +652,7 @@ c*****************************************************************
 ! 	  if we are in first layer, w(l-1,ii) is zero (see above)
 
 	  w = wl(l-1,ii)		!top of layer
-	  if( l .eq. jlevelk ) w = 0.	!surface -> no transport (WZERO)
+	  !if( l .eq. jlevelk ) w = 0.	!surface -> w = 0 no transport (WZERO)
 	  if( w .ge. 0. ) then
 	    fw(ii) = aat*w*cl(l,ii)
 	    flux_top = w*cl(l,ii)
