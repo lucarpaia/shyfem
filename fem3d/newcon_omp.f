@@ -805,8 +805,8 @@ c     +					  - rk3*hmed*wdiff(ii)
             fw_wetdry = aat * vflux(l-1,ii)		  
 	    cexpl = aj4 * dt * fw_wetdry
             ahigh = aj4 * dt * clp_wetdry
-            cn(jlhkv(k),k)    = cn(jlhkv(k),k)  + cexpl
-            chigh(jlhkv(k),k) = chigh(jlhkv(k),k) + ahigh
+            cn(l-1,k)    = cn(l-1,k)    + cexpl
+            chigh(l-1,k) = chigh(l-1,k) + ahigh
 	  end if	  
 
           end if                        !end of sanity check
@@ -949,7 +949,7 @@ c     +					  - rk3*hmed*wdiff(ii)
 	    cn(l,k)=cn(l,k)-cn(l+1,k)*chigh(l)
 	  end do
 	end if
-	
+
 ! ----------------------------------------------------------------
 !  end of routine
 ! ----------------------------------------------------------------
