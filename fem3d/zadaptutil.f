@@ -151,8 +151,8 @@ c---------------------------------------------------------
 	  !flag adaptive layers in element with non-conformal edge:
 	  !free-surface must span all layers greater then lmin
 	  if (lsigma(ii).gt.lmine) then
-            nsigma(4) = max(nsigma(ii),nsigma(4))
 	    lsigma(4) = max(lsigma(ii),lsigma(4))
+	    nsigma(4) = lsigma(4)-lmine+1
 	  end if
 	end do
 
