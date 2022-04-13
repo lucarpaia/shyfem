@@ -988,7 +988,10 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    end if	    
 	    !wfold = azt * (atop*wlov(l-1,k)-abot*wlov(l,k))
 	    !wlnv(l-1,k) = wlnv(l,k) + (wdiv-dvdt+wfold)/az
-	    wlnv(l-1,k) = wlnv(l,k) + (wdiv - dvdt)/atop
+	    wlnv(l-1,k) = wlnv(l,k) 
+	    if( atop .gt. 0. ) then  
+	      wlnv(l-1,k) = wlnv(l-1,k) + (wdiv - dvdt)/atop
+	    end if  
 	    abot = atop
 	    if( debug ) write(6,*) k,l,wdiv,wlnv(l,k),wlnv(l-1,k)
 	    if (l.eq.lmin) then
@@ -1072,7 +1075,7 @@ c transforms velocities to nodal values
 
 	allocate(vv(nlvdi,nkn))
 	uprv = uprv * real(iskremap)
-	vprv = vprv * real(iseremap)
+	vprv = vprv * real(iskremap)
 	vv   = 0.
 
 c baroclinic part
@@ -1089,7 +1092,7 @@ c baroclinic part
 	    do l=lmink,lremapk
 	      vv(l,k)=vv(l,k)+aj
 	      !element with non-conformal edge
-	      if (l.eq.lmin .and. lmin.gt.lmink) then	      
+	      if (l.lt.lmin) then 
 	        uprv(l,k)=uprv(l,k)+aj*ulnv(lmin,ie)
 		vprv(l,k)=vprv(l,k)+aj*vlnv(lmin,ie)		
 	      !standard element	
