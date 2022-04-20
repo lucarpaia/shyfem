@@ -455,11 +455,6 @@ c*****************************************************************
         ilevel=ilhv(ie)
 	jlevel=jlhv(ie)
 
-        jlevelmin = huge(1)
-        do ii=1,3
-          jlevelmin=min(jlevelmin,jlhev(ii,ie))
-        end do
-
 ! 	----------------------------------------------------------------
 ! 	set up vectors for use in assembling contributions
 ! 	----------------------------------------------------------------
@@ -502,8 +497,8 @@ c*****************************************************************
 
         !element with non conformal edge
         !compute weights for horizontal advection:
-        call get_zadaptive_weights(ie,wein,+1)       	
-        call get_zadaptive_weights(ie,weio,-1)
+        call get_zadaptive_weights(ie,jlevelmin,wein,+1)       	
+        call get_zadaptive_weights(ie,jlevelmin,weio,-1)
 
 	do l=ilevel+1,nlv
 	  presentl(l,:) = 0.

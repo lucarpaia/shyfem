@@ -1621,8 +1621,8 @@ c arguments
 	real dzeta(nkn)
 c local
 	logical debug
-	integer k,ie,ii,kk,l,lmax,lmin,lmiss
-	integer ilevel,jlevel
+	integer k,ie,ii,kk,l,lmax,lmin,lmiss,llmiss
+	integer ilevel,jlevel,jlevelk,jlevelmin
         integer ibc,ibtyp
 	real aj,wbot,wdiv,ff,atop,abot,wfold
 	real b,c
@@ -1670,21 +1670,23 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	  ilevel = ilhv(ie)
           jlevel = jlhv(ie)
 	  weio = 0.; wein = 0.
-	  call get_zadaptive_weights(ie,wein,+1)
-          call get_zadaptive_weights(ie,weio,-1)	  
+	  call get_zadaptive_weights(ie,jlevelmin,wein,+1)
+          call get_zadaptive_weights(ie,jlevelmin,weio,-1)
 	  do l=jlevel,ilevel
 	    do ii=1,3
 		kk=nen3v(ii,ie)
 		b = ev(ii+3,ie)
 		c = ev(ii+6,ie)
                 !element with non conformal edge
-		if (l.eq.jlevel .and. jlevel.gt.jlhev(ii,ie)) then
-		  do lmiss=jlevel,jlhev(ii,ie),-1
+		jlevelk=jlhev(ii,ie)
+		if (l.eq.jlevel .and. jlevel.gt.jlevelk) then
+		  do lmiss=jlevel,jlevelmin,-1
 		    ffn = (utlnv(jlevel,ie)*b + vtlnv(jlevel,ie)*c)
                     ffo = (utlov(jlevel,ie)*b + vtlov(jlevel,ie)*c)
-                    ff = ffn *wein(lmiss)* az + ffo *weio(lmiss)* azt
-                    vf(lmiss,kk) = vf(lmiss,kk) + 3. * aj * ff
-                    va(lmiss,kk) = va(lmiss,kk) + aj
+		    ff = ffn *wein(lmiss)* az + ffo *weio(lmiss)* azt
+		    llmiss = max(lmiss,jlevelk)
+		    vf(llmiss,kk) = vf(llmiss,kk) + 3. * aj * ff
+		    if (lmiss.ge.jlevelk) va(lmiss,kk) = va(lmiss,kk) + aj
 		  end do
 		!general case for inferior layers
 		!or with conformal edge

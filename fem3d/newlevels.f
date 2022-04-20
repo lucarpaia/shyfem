@@ -60,6 +60,7 @@
         integer, save, allocatable :: jlhv(:)
         integer, save, allocatable :: jlhov(:)	
         integer, save, allocatable :: jlhkv(:)
+        integer, save, allocatable :: jwlhkv(:)	
         integer, save, allocatable :: jlhkov(:)
         integer, save, allocatable :: jlhev(:,:)
         integer, save, allocatable :: jlheov(:,:)

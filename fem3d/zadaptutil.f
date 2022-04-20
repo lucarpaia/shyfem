@@ -207,7 +207,7 @@ c---------------------------------------------------------
 
 c*****************************************************************
 
-        subroutine get_zadaptive_weights(ie,weight,mode)
+        subroutine get_zadaptive_weights(ie,jlevelmin,weight,mode)
 
 c returns weights to split transport across sublevels for
 c non-conformal element. Non-conformal element are those:
@@ -246,10 +246,11 @@ c TODO hdknv still global ... pass as argument
 	implicit none
 
 	integer :: ie		!element index
+	integer :: jlevelmin 	!minimum top-layer nodal index (return)
 	double precision,dimension(nlvdi) :: weight !weights (return)
 	integer mode		!mode
 
-	integer jlevel,jlevelmin
+	integer jlevel
 	integer jlevelk(3)
 	integer lmiss,k,ii,n,numOfLev
 	double precision w
@@ -884,7 +885,7 @@ c vv            aux array for area
 
 	logical debug
 	integer k,ie,ii,kk,l,lmin,lmiss,lmink,lremapk
-	integer jlevel,ilevel
+	integer jlevel,ilevel,jlevelmin
         integer ibc,ibtyp
 	real aj,wbot,wdiv,ff,atop,abot,wfold
 	real b,c
@@ -930,8 +931,8 @@ c aj * ff -> [m**3/s]     ( ff -> [m/s]   aj -> [m**2]    b,c -> [1/m] )
 	  aj=4.*ev(10,ie)		!area of triangle / 3
 	  ilevel = ilhv(ie)
 	  weio = 0.; wein = 0.
-	  call get_zadaptive_weights(ie,wein,+1)
-          call get_zadaptive_weights(ie,weio,-1)
+	  call get_zadaptive_weights(ie,jlevelmin,wein,+1)
+          call get_zadaptive_weights(ie,jlevelmin,weio,-1)
 
 	  do ii=1,3
 
