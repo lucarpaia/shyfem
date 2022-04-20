@@ -444,6 +444,13 @@ c              operations occurred: needed for remap operations
 c 
 c e.g. jlhkv(k)=jlhkv(ii,ie)=2 means first layer has been removed 
 c      for node k <-> (ii,ie) but only if k is not wet/dry
+c
+c at wet/dry nodes (boundary nodes) jlhkv is computed only "on wet side".
+c This is because many shyfem subroutines work with non-negative layers
+c and, at wet/dry nodes with z-adaptation, it may happen that zero-depth 
+c layers separate layers on "wet side" from layers on "dry side": 
+c l=jwlhkv,ilhkv 
+c means that, at boundary nodes, you loop only layers on "wet side"
 
         use zadapt
         use levels
@@ -451,6 +458,7 @@ c      for node k <-> (ii,ie) but only if k is not wet/dry
         use shympi
 	use mod_hydro
 	use mod_layer_thickness
+	use mod_geom_dynamic
 
         implicit none
 
@@ -458,7 +466,12 @@ c      for node k <-> (ii,ie) but only if k is not wet/dry
         integer ie,ii,k,l,nlev,nsigma
         real hsigma
 	!real getpar,hzoff	  !lrp
-	real r 
+	real r
+	logical isein,iseout,iskin
+
+	isein(ie)  = iwegv(ie).eq. 0
+        iseout(ie) = iwegv(ie).gt. 0
+	iskin(k)   = inodv(k) .ne.-1
 
 	r = rmin_gridtop
         !hzoff=getpar('hzoff')
@@ -469,9 +482,8 @@ c      for node k <-> (ii,ie) but only if k is not wet/dry
         !rlhkv = 0		  !(moved to copy_zadaptation)
 	iskremap = 1		  !initialize 1: no config change
 
-        do k=1,nkn
-          jlhkv(k)=huge(1)
-        end do
+        jlhkv=huge(1)
+        jwlhkv=huge(1)
 
 c---------------------------------------------------------
 c loop over element
@@ -493,10 +505,19 @@ c---------------------------------------------------------
                 !if((-hlv(l)+hzoff).lt.zenv(ii,ie)) exit		
               end do
             end if
+
 	    jlhev(ii,ie)=min(l,jlhv(ie)) !safety min: jlhev>=jlhv, jlhkv>=ilhkv
+
 	    if (jlhev(ii,ie).lt.jlhkv(k)) then 
 	      jlhkv(k)=min(jlhev(ii,ie),ilhkv(k))
 	    end if
+
+            if (isein(ie).or.                            !boundary nodes:
+     +          (iseout(ie).and.iskin(k))) then          !jwlhkv computed on wet side 
+              if (jlhev(ii,ie).lt.jwlhkv(k)) then
+                jwlhkv(k)=min(jlhev(ii,ie),ilhkv(k))
+              end if
+            end if
 
 c---------------------------------------------------------
 c set rlhkv
@@ -513,10 +534,17 @@ c---------------------------------------------------------
         end do
 
         if( shympi_partition_on_elements() ) then
-          !call shympi_comment('shympi_elem: exchange ilhkv - max')
+          !call shympi_comment('shympi_elem: exchange jlhkv - min')
           call shympi_exchange_2d_nodes_min(jlhkv)
         else
           call shympi_exchange_2d_node(jlhkv)
+        end if
+
+        if( shympi_partition_on_elements() ) then
+          !call shympi_comment('shympi_elem: exchange jlhkv - min')
+          call shympi_exchange_2d_nodes_min(jwlhkv)
+        else
+          call shympi_exchange_2d_node(jwlhkv)
         end if
 
         if( shympi_partition_on_elements() ) then
@@ -786,6 +814,7 @@ c----------------------------------------------------------------
 	      hdkn(l,k) = hdkn(l,k) / areafv
 	    end if
 	  end do
+	  lmin = jwlhkv(k)
           do l=lmin,lremapk
             h = hdkn(l,k)
             if( h <= hmin ) then

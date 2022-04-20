@@ -220,7 +220,7 @@ c computes depth of node k for all layers
 	integer l
 
 	ndim = nlev
-        flev = jlhkv(k)	
+        flev = jwlhkv(k)	
 	nlev = ilhkv(k)
 	if( nlev > ndim ) goto 99
 
@@ -1114,6 +1114,7 @@ c----------------------------------------------------------------
 	      hdkn(l,k) = hdkn(l,k) / areafv
 	    end if
 	  end do
+	  lmin = jwlhkv(k)
           do l=lmin,lmax
             h = hdkn(l,k)
             if( h <= hmin ) then

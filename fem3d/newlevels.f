@@ -106,7 +106,8 @@
 	  deallocate(ilmkv)
           deallocate(jlhv)
 	  deallocate(jlhov)
-          deallocate(jlhkv)	  
+          deallocate(jlhkv)
+          deallocate(jwlhkv)	  
           deallocate(jlhkov)
           deallocate(jlhev)
           deallocate(jlheov)
@@ -124,8 +125,9 @@
 	allocate(ilhkv(nkn))
 	allocate(ilmkv(nkn))
         allocate(jlhv(nel))
-        allocate(jlhov(nel))	
+        allocate(jlhov(nel))
         allocate(jlhkv(nkn))
+        allocate(jwlhkv(nkn))
         allocate(jlhkov(nkn))
         allocate(jlhev(3,nel))
         allocate(jlheov(3,nel))
@@ -139,6 +141,7 @@
 	jlhv = 1
 	jlhov = 1
         jlhkv = 1
+	jwlhkv = 1
 	jlhkov = 1
 	jlhev = 1
 	jlheov = 1
