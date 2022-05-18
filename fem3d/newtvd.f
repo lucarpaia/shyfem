@@ -131,7 +131,7 @@ c computes gradients for scalar cc (average gradient information)
 	real gy(nlvddi,nkn)
 	real aux(nlvddi,nkn)
         
-        integer k,l,ie,ii,lmax
+        integer k,l,ll,ie,ii,lmax
 	real b,c,area
 	real ggx,ggy
 
@@ -154,8 +154,9 @@ c computes gradients for scalar cc (average gradient information)
               k=nen3v(ii,ie)
               b=ev(ii+3,ie)
               c=ev(ii+6,ie)
-              ggx=ggx+cc(l,k)*b
-              ggy=ggy+cc(l,k)*c
+	      ll = max(l,jlhev(k,ie))	!non-conformal elements
+              ggx=ggx+cc(ll,k)*b
+              ggy=ggy+cc(ll,k)*c
               aux(l,k)=aux(l,k)+area
 	    end do
             do ii=1,3
@@ -246,7 +247,7 @@ c computes concentration of upwind node (using info on upwind node)
 
         implicit none
 
-        integer ie,l
+        integer ie,l,ll
 	integer ic,id
         real cu
         real cv(nlvdi,nkn)
@@ -265,7 +266,8 @@ c computes concentration of upwind node (using info on upwind node)
 
         do ii=1,3
           k = nen3v(ii,ienew)
-          c(ii) = cv(l,k)
+	  ll = max(l,jlhev(k,ie))		!non-conformal elements	
+          c(ii) = cv(ll,k)
         end do
 
         call femintp(ienew,c,xu,yu,cu)
@@ -490,12 +492,12 @@ c computes horizontal tvd fluxes for one element
 	use mod_tvd
 	use mod_hydro_vel
 	use evgeom
-	use levels, only : nlvdi,nlv
+	use levels, only : nlvdi,nlv,jlhev
 	use basin
 
 	implicit none
 
-	integer ie,l
+	integer ie,l,llic,llid
 	integer itot,isum
 	double precision dt
 	double precision cl(0:nlvdi+1,3)		!bug fix
@@ -567,10 +569,13 @@ c computes horizontal tvd fluxes for one element
 		id = itot2*ip + itot1*ii
 		fact = -itot2 + itot1
 
+		llic=max(l,jlhev(ic,ie))		!keep the right transport value
+                llid=max(l,jlhev(id,ie))		!for non-conformal elements	
+
                 kc = nen3v(ic,ie)
-                conc = cl(l,ic)
+                conc = cl(llic,ic)
                 kd = nen3v(id,ie)
-                cond = cl(l,id)
+                cond = cl(llid,id)
 
                 !dx = xgv(kd) - xgv(kc)
                 !dy = ygv(kd) - ygv(kc)
@@ -799,7 +804,7 @@ c ------------------- l+2 -----------------------
 	      cond = cl(l+1,ii)
 	      conu = cond
 	      lu = l - 1
-	      if( lu .ge. 1 ) conu = cl(lu,ii)
+	      if( lu .ge. lmin(ii) ) conu = cl(lu,ii)
 	    end if
 
 	    hdis = 0.5*(hold(l,ii)+hold(l+1,ii))
