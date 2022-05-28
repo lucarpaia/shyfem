@@ -166,8 +166,8 @@ c computes layer thickness for element ie
 	real hl(lmax)		!layer thickness (return)
 	real htot,htotz		!total depth without and with zeta (return)
 
-	integer nlev,nsigma,ii,lmax_act
-	real hsigma
+	integer nlev,nsigma,nadapt,ii,lmax_act,lmin
+	real hsigma,hadapt
 	real z,h
 
         !call compute_sigma_info(nlev,hlv,nsigma,hsigma)
@@ -184,7 +184,11 @@ c computes layer thickness for element ie
 	end do
 	z = z / 6.
 
-        call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
+	lmin = 1	       !lrp: z-adapt coords not working
+	nadapt = 0	       !with lagrange module		
+	hadapt = 0.            !
+        call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +                           hsigma,hadapt,z,h,hlv,hl)
 	htot = h
 	htotz = h + z
 

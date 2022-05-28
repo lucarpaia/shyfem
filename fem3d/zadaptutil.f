@@ -62,7 +62,7 @@ c******************************************************************
 
 c******************************************************************
 
-        subroutine compute_zadaptive_info(ie,nlv,lmin,lmax,hlv,z,
+        subroutine compute_zadaptive_info(ie,nlv,lmin,lmax,hlv,z,htot,
      +					  nsigma,lsigma,hsigma,hdl)
 
 c returns adaptive layers info. Info is computed by node of element:
@@ -80,21 +80,21 @@ c coefficients of adaptive layers
         integer lmin(3)         !top layer index	
 	integer lmax		!bottom layer index
 	real hlv(nlv)           !layer structure
-        real z(3)               !water level	
+        real z(3)               !water level
+	real htot(3)		!water depth	
         integer nsigma(4)       !total number of adaptive layers (return)
 	integer lsigma(4)       !lowest index of adaptive layers (return)
         real hsigma(3)          !closing depth of adaptive layers(return)
 	real hdl(nlv,3)         !coefficient (return)
 
 	integer l,ii,levmax,lmine
-	real r,q,den
+	real r,den,check
 
 	nsigma = 0         !no adaptation -> all to zero
 	lsigma = 0	   !no adaptation -> all to zero
 	hdl = 0.           !no adaptation -> all to zero
 
 	r = rmin_gridmov
-	q = 1./r
 
 	lmine = maxval(lmin)
 
@@ -107,14 +107,14 @@ c---------------------------------------------------------
 	  do l=lmin(ii),lmax-1 !-1 to skip bottom layer
 
 c---------------------------------------------------------
-c node movement for layer needed to avoid negative depth
+c lowest index of adaptive deforming layers
 c---------------------------------------------------------	  
 	  
             if(z(ii).le.(-hlv(l)+r*(hlv(l)-hlv(l-1)))) then 
               levmax = l+1
 
 c---------------------------------------------------------
-c no movement needed 
+c no deformation
 c--------------------------------------------------------- 
 
 	    else  
@@ -131,17 +131,30 @@ c---------------------------------------------------------
 	  lsigma(ii) = levmax
 
 c---------------------------------------------------------
-c compute hdl: we freeze the configuration
+c compute hdl: different strategy tested
 c--------------------------------------------------------- 
 
     	  if (nsigma(ii).gt.0) then	  
-	  den = (nsigma(ii)-1.)*q+1.
-	  hdl(lmin(ii),ii) = - 1. / den
-c	  hdl(lmin(ii),ii) = - 1. / nsigma(ii)	 !constant hdl
-          do l=lmin(ii)+1,lsigma(ii)
-c	    hdl(l,ii) = - 1. / nsigma(ii)	 !constant hdl
-	    hdl(l,ii) = - q / den
+	  den = (nsigma(ii)-1.)+r		!freezed hdl
+c         den = min(htot(ii),hsigma(ii))-hlv(lmin(ii)-1) !zstar   hdl
+          do l=lmin(ii),lsigma(ii)
+	    hdl(l,ii) = - 1. / den		!freezed  hdl		
+c           hdl(l,ii) = - 1. / nsigma(ii)       !constant hdl
+c           hdl(l,ii) = (hlv(l-1)-hlv(l))/den   !zstar    hdl
 	  end do
+          hdl(lmin(ii),ii) = - r / den          !freezed  hdl
+	  check = 0.
+	  do l=lmin(ii),lsigma(ii)
+            check = check + hdl(l,ii)
+          end do		    
+	  if (check .ne. -1.0) then
+	    write(6,*) 'error computing layer thickness'
+	    write(6,*) 'you are using z-adaptive levels'
+            write(6,*) 'with local layer deformation but'
+	    write(6,*) 'the weights does not sum to -1 ', check
+	    write(6,*) 'hadapt, htot ', hsigma(ii),htot(ii)
+	    stop 'error stop in compute_zadaptive_info'	    
+	  end if
 	  end if
 
 c---------------------------------------------------------

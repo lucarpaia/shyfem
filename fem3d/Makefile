@@ -403,7 +403,7 @@ HTOBJS = \
 	atoxi3d.o atoxi.o kepsd.o keps_util.o \
 	newexpl.o subrnd.o \
 	submet.o subrgf.o subcoord.o subsrt.o subfvl.o \
-	subtrace.o subproj.o subeos.o sigmautil.o zadaptutil.o \
+	subtrace.o subproj.o subeos.o sigmautil.o zadaptutil.o zadaptutilout.o \
 	subwrt.o subvintp.o \
 	subfemfile.o subtsuvfile.o \
 	subflxa.o subflx3d.o subflx.o subflxu.o \
@@ -447,7 +447,7 @@ OUTOBJS = $(PARMOD) subnls.o subsss.o subround.o subscn.o \
 	  debug.o subreg.o subnev.o \
 	  subfemfile.o subfemutil.o \
 	  $(TSOBJS) \
-	  subvintp.o subver.o sigmautil.o \
+	  subvintp.o subver.o sigmautil.o zadaptutilout.o \
 	  suboutput.o suboutputd.o \
 	  subclo.o \
 	  mod_depth.o mod_hydro.o mod_hydro_print.o \

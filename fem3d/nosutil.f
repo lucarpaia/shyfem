@@ -397,8 +397,8 @@ c we could do better using information on node area and depth structure
 	real vol3(nlvddi,nkn)
 
 	logical bvolwrite,bdebug
-	integer ie,ii,k,l,lmax,nsigma,nlvaux,ks
-	real z,h,hsigma
+	integer ie,ii,k,l,lmax,lmin,nsigma,nadapt,nlvaux,ks
+	real z,h,hsigma,hadapt
 	double precision ak,vk,ve
 	double precision, allocatable :: volk(:,:)
 
@@ -420,7 +420,9 @@ c we could do better using information on node area and depth structure
 	do ie=1,nel
 	  ak = 4. * weight_elem(ie)	!area of vertex
 	  h = hev(ie)
-	  call get_layer_thickness(nlv,nsigma,hsigma,z,h,hlv,hl)
+	  call get_zadapt_info(z,hlv,nsigma,nlv,lmin,nadapt,hadapt)
+          call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +                             hsigma,hadapt,z,h,hlv,hl)	  
 	  do ii=1,3
 	    k = nen3v(ii,ie)
 	    bdebug = k == ks .and. nlv > 1

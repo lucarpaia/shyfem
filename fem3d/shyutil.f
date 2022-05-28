@@ -53,6 +53,7 @@
 ! 06.07.2018	ggu	changed VERS_7_5_48
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 22.09.2020    ggu     correct warnings for PGI compiler
+! 25.05.2022    lrp     introduce z-adaptive layers  
 !
 !***************************************************************
 
@@ -510,8 +511,8 @@
 	implicit none
 
 	logical bvolwrite,bdebug
-	integer ie,ii,k,l,lmax,nsigma,nlvaux,ks
-	real z,h,hsigma,zeps
+	integer ie,ii,k,l,lmax,lmin,nsigma,nadapt,nlvaux,ks
+	real z,h,hsigma,hadapt,zeps
 	double precision ak,vk,ve
 	double precision, allocatable :: vole(:,:),volk(:,:)
 	real hl(nlv)		!aux vector for layer thickness
@@ -540,7 +541,9 @@
 	  if( h+z < zeps ) z = zeps - h	!make volume positive
 	  lmax = ilhv(ie)
 	  !write(6,*) ie,lmax,nlv,nlvdi
-	  call get_layer_thickness(lmax,nsigma,hsigma,z,h,hlv,hl)
+	  call get_zadapt_info(z,hlv,nsigma,lmax,lmin,nadapt,hadapt)
+	  call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +				   hsigma,hadapt,z,h,hlv,hl)
 	  do l=1,lmax
 	    vk = ak * hl(l)
 	    ve = 3. * vk

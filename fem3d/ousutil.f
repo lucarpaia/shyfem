@@ -83,9 +83,9 @@ c transforms transports at elements to velocities at nodes
 	real hl(nlvddi)			!aux variable for real level thickness
 
 	logical bsigma
-        integer ie,ii,k,l,lmax,nsigma,nlvaux
-        real hmed,u,v,area,zeta
-	real hsigma
+        integer ie,ii,k,l,lmin,lmax,nsigma,nadapt,nlvaux
+        real hmed,u,v,area,zeta,zmin
+	real hsigma,hadapt
 
 	real area_elem
 
@@ -106,13 +106,21 @@ c transforms transports at elements to velocities at nodes
 	  area = area_elem(ie)
 	  lmax = ilhv(ie)
 	  call compute_levels_on_element(ie,zenv,zeta)
-	  call get_layer_thickness(lmax,nsigma,hsigma,zeta,hev(ie),hlv,hl)
+	  zmin = minval(zenv(:,ie))
+          call get_zadapt_info(zmin,hlv,nsigma,lmax,lmin,nadapt,hadapt)	
+          call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +				   hsigma,hadapt,zeta,hev(ie),hlv,hl)
 	  !call get_layer_thickness_e(ie,lmax,bzeta,nsigma,hsigma,hl)
 
 	  do l=1,lmax
 	    hmed = hl(l)
-	    u = utlnv(l,ie) / hmed
-	    v = vtlnv(l,ie) / hmed
+            if (hmed .gt. 0.) then
+              u = utlnv(l,ie) / hmed
+              v = vtlnv(l,ie) / hmed
+            else
+              u = 0.
+              v = 0.
+            end if
 	    do ii=1,3
 	      k = nen3v(ii,ie)
 	      uprv(l,k) = uprv(l,k) + area * u

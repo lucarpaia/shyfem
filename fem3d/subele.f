@@ -977,7 +977,7 @@ c----------------------------------------------------------------
 	  zmed = 0.
 
           call compute_zadaptive_info(ie,nlv,jlhev(:,ie),lmax,
-     +		hlv,zenv(:,ie),nadapt,ladapt,hadapt,cadapt)
+     +		hlv,zenv(:,ie),hm3v(:,ie),nadapt,ladapt,hadapt,cadapt)
 
 c	  -------------------------------------------------------
 c	  nodal values
