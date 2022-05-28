@@ -358,7 +358,7 @@ SOBJS   = \
 	  submod.o subuti.o subele.o subgeo.o subdts.o \
 	  links.o sublnka.o sublnks.o sublnku.o \
 	  debug.o subhisto.o subnosa.o subfvl.o \
-	  subeos.o sigmautil.o zadaptutil.o \
+	  subeos.o sigmautil.o zadaptutil.o zadaptutilout.o \
 	  nosutil.o ousutil.o subfemfile.o subvintp.o \
 	  genutil.o subfemintp.o $(TSOBJS) subxi.o \
 	  $(MODULES) \
