@@ -1026,9 +1026,9 @@ c---------- DEB SIG
 	integer llup(3),lldown(3)
 c---------- DEB SIG
 
-	logical bsigma,bsigadjust
+	logical bsigma,badapt,bsigadjust
         integer k,l,ie,ii,lmax,lmin,nsigma
-	real hsigma,hdep
+	real hsigma,hdep,htot
         double precision hlayer,hint,hhk,hh,hhup,htint
 	double precision dzdx,dzdy,zk
         double precision xbcl,ybcl
@@ -1037,6 +1037,12 @@ c---------- DEB SIG
 	double precision rhoup,psigma
 	double precision b3,c3
 	double precision rdist,rcomp,ruseterm
+
+	integer k1,k2,k3 !lrp
+        integer ieext    !lrp
+
+	integer nadapt(4)
+	real hadapt(4)
 
 	bsigadjust = .false.		!regular sigma coordinates
 	bsigadjust = .true.		!interpolate on horizontal surfaces
@@ -1050,7 +1056,7 @@ c---------- DEB SIG
 	allocate(hkko(0:nlvdi,nkn))
 	allocate(hkkom(0:nlvdi,nkn))
 
-	if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
+c lrp	if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
 	  do k=1,nkn
 	    lmax=ilhkv(k)
 	    hkko(0,k)=-zov(k)	!depth of interface on node
@@ -1063,33 +1069,37 @@ c---------- DEB SIG
 	      hkkom(l,k)=(hkko(l,k)+hkko(l-1,k))/2.
             end do
 	  end do
-	end if
+c lrp	end if
 	 
         do ie=1,nel
+
+          call get_zadapt_info(ie,nadapt,hadapt)
+
           rdist = rdistv(ie)              !use terms (distance from OB)
           rcomp = rcomputev(ie)           !use terms (custom elements)
           ruseterm = min(rcomp,rdist)     !use terms (both)
 
           presbcx = 0.
           presbcy = 0.
-	  lmin = ilmv(ie)
+	  lmin = jlhv(ie)
           lmax = ilhv(ie)
 	  brup=0.
 	  crup=0.
 	  hhup=0.
-          do l=1,lmax		!loop over layers to set up interface l-1
+          do l=lmin,lmax		!loop over layers to set up interface l-1
 	    bsigma = l .le. nsigma
+	    badapt = l .le. (nadapt(4)+lmin-1) 	
 
 	    htint = 0.				!depth of layer top interface
 	    if( l .gt. 1 ) htint = hlv(l-1)
 
             hlayer = hdeov(l,ie)		!layer thickness
-	    if( .not. bsigma ) hlayer = hldv(l)
+	    if( .not. (bsigma .and. badapt) ) hlayer = hldv(l)
 
             hh = 0.5 * hlayer
 	    hint = hh + hhup			!interface thickness
                 
-	    if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
+	    if( (bsigma .or. badapt) .and. bsigadjust ) then	!-------------- DEB SIG
 	      hele = 0.
 	      helei = 0.
 	      do ii=1,3
@@ -1163,7 +1173,7 @@ c---------- DEB SIG
 	        crl = crl + c * rhop
 	      end if
 
-	      if( bsigma .and. bsigadjust ) then 
+	      if( (bsigma .or. badapt) .and. bsigadjust ) then 
 		lu = llup(ii)
 		ld = lldown(ii)
 		if( ld .eq. 1 ) then		!above surface
@@ -1173,7 +1183,7 @@ c---------- DEB SIG
 		  nn = nn + ii
 		  rhop = rhov(lkmax,k)
 		else				!do interpolation
-		  !hu = hkko(lu,k)
+		  !hu = hkko(lu,k)		
 		  !hd = hkko(ld,k)
 		  hu = hkkom(lu,k) !DEB
 		  hd = hkkom(ld,k) !DEB
@@ -1188,21 +1198,39 @@ c---------- DEB SIG
               br = br + b * rhop
               cr = cr + c * rhop
 
-              if (bsigma) then
+              if (bsigma .or. badapt) then
 	       if( bsigadjust ) then
 		psigma = 0.
-	       else
+	       else       
                 psigma = psigma + (rhoup-rhop)/hint
-                hdep = hm3v(ii,ie) + zov(k)
-                hhk = -htint * hdep
-                zk = -hhk               !transform depth in z
+		htot = hm3v(ii,ie) 
+c                hdep = hm3v(ii,ie) + zov(k)
+                if (bsigma) then 
+		   hsigma = min(htot,hsigma)	
+		   hdep = hsigma + zov(k)
+                   hhk = -htint * hdep
+                   zk = -(hhk - zov(k))                   !transform depth in z			
+		else        
+		  if (l.le.(nadapt(ii)+lmin-1)) then 
+ 		    hdep = hadapt(ii) + zov(k)
+		    if ( nadapt(ii).eq.lmax ) then 
+		      hdep = htot + zov(k)   !bottom layer
+		      hadapt(ii) = htot
+	            end if  
+                    hhk = htint/hadapt(ii) * hdep 
+		    zk = 0.
+		    if (l.gt.1) zk = -(hhk - zov(k))                   !transform depth in z		    
+		  else
+		    zk = htint
+		  end if
+		end if 
                 dzdx = dzdx + b * zk
                 dzdy = dzdy + c * zk
 	       end if
               end if
             end do
 
-	    if( bsigma .and. bsigadjust ) then 
+	    if( (bsigma .or. badapt) .and. bsigadjust ) then 
               if(nb.eq.2)then
 	        brint = brup
 	        crint = crup
