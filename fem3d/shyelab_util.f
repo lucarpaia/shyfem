@@ -191,7 +191,8 @@
 	  if( bvel ) then
 	    zeta = sum(zenv(:,ie)) / 3.	!average of zeta on element
 	    zmin = minval(zenv(:,ie))   !min: z-adapt coords works with zmin
-	    call get_zadapt_info(zmin,hlv,nsigma,lmax,lmin,nadapt,hadapt)
+	    call compute_zadapt_info(zmin,hlv,nsigma,lmax,
+     +			             lmin,nadapt,hadapt)
 	    call get_layer_thickness(lmax,lmin,nsigma,nadapt,
      +				     hsigma,hadapt,zeta,hev(ie),hlv,hl)
 	  end if
@@ -269,7 +270,8 @@
 	  zeta = sum(zenv(:,ie)) / 3.	!average of zeta on element
           zmin = minval(zenv(:,ie))     !min: z-adapt coords works with zmin	  
 	  if( bvel ) then
-	    call get_zadapt_info(zmin,hlv,nsigma,lmax,lmin,nadapt,hadapt)
+	    call compute_zadapt_info(zmin,hlv,nsigma,lmax,
+     +			             lmin,nadapt,hadapt)
 	    call get_layer_thickness(lmax,lmin,nsigma,nadapt,
      +				     hsigma,hadapt,zeta,hev(ie),hlv,hl)
 	  end if
