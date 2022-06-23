@@ -57,7 +57,7 @@
 	if( lmax <= 1 ) return
 
         call get_sigma_info(nlvaux,nsigma,hsigma)
-        call compute_zadapt_info(z,hlv,nsigma,lmax,lmin,nadapt,hadapt)
+        call get_zadapt_info(z,hlv,nsigma,lmax,lmin,nadapt,hadapt)
         call get_layer_thickness(lmax,lmin,nsigma,nadapt,
      +				 hsigma,hadapt,z,htot,hlv,hd)
 

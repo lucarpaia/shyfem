@@ -107,8 +107,7 @@ c transforms transports at elements to velocities at nodes
 	  lmax = ilhv(ie)
 	  call compute_levels_on_element(ie,zenv,zeta)
 	  zmin = minval(zenv(:,ie))
-          call compute_zadapt_info(zmin,hlv,nsigma,lmax,
-     +			           lmin,nadapt,hadapt)
+          call get_zadapt_info(zmin,hlv,nsigma,lmax,lmin,nadapt,hadapt)	
           call get_layer_thickness(lmax,lmin,nsigma,nadapt,
      +				   hsigma,hadapt,zeta,hev(ie),hlv,hl)
 	  !call get_layer_thickness_e(ie,lmax,bzeta,nsigma,hsigma,hl)

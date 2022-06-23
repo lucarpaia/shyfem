@@ -826,44 +826,6 @@ c		layer. (Default 0.25)
 	call addpar('ilytyp',3.00)	!type of depth adjustment
 	call addpar('hlvmin',0.25)	!min percentage of last layer thickness
 
-c With zeta layers the treatment of the free-surface must be addressed.
-c What happen if the water level falls below the first zeta-level? 
-c An algorithm in two steps is deployed: a local deformation (local
-c sigma) of the top layers followed by surface layer(s) insert/removal.
-c The next parameters deals with the treatment of first (top) layer.
-c
-c |rzmov|    	percentage of layer thickness below which a local sigma 
-c		is deployed. The set of layers that are locally deformed 
-c		is: { l : -z_{l-1/2}+rgridmov*dz_{l} < zeta } with
-c		z_{l-1/2} the upper interface of layer l with thickness
-c		dz_{l} = z_{l-1/2}-z_{l+1/2}. Unfortunally
-c		water level zeta is not known at the beginning of the
-c		simulation and it is not easy to known the number 
-c		of deforming levels given rzmov. However we can say that
-c               rzmov = z_{l-1/2}/dz_{l} means that, if water level
-c               touch the first zeta-level, then l-layers are deformed:
-c		- 0 < rgridmov < 1 means that only when the water level falls 
-c		below the first zeta level (+ r*dz_{1}) the first two 
-c		layers deform. This is adaptive z-coordinate.
-c		- rgridmov = z_{nlv-1/2}/dz_{nlv} means that, if the
-c		water fall below the first zeta-level all layers deform.
-c		- rzmov = (maxZeta+z_{nlv+1/2})/dz_{nlv}
-c		with maxZeta the time/space maximum of the water level; 
-c		this is the well-known zstar coordinate. 
-c		Default 0.125
-c |rztop|       percentage of layer thickness for last layer below which
-c		layer removal occurs.
-c		- 0 < rztop < 1. This is adaptive z-coord.
-c		- rztop = minZeta-z_{l+1/2})/dz_{l} <0 means that 
-c		you will have l as top-layer if zeta<minZeta (l-1 layer
-c		removed).
-c		- rztop = -z_{nlv+1/2})/dz_{1} no layer insertion/removal;
-c		This is zstar coordinate	
-c		Default 0.2
-
-        call addpar('rzmov',0.125)      !% of layer thickness for local sigma
-        call addpar('rztop',0.200)      !% of layer thickness for inser/removal
-
 c The above parameters are dealing with zeta layers, where every layer
 c has constant thickness, except the surface layer which is varying with
 c the water level. The next parameters deal with sigma layers where all

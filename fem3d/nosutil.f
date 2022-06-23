@@ -420,7 +420,7 @@ c we could do better using information on node area and depth structure
 	do ie=1,nel
 	  ak = 4. * weight_elem(ie)	!area of vertex
 	  h = hev(ie)
-	  call compute_zadapt_info(z,hlv,nsigma,nlv,lmin,nadapt,hadapt)
+	  call get_zadapt_info(z,hlv,nsigma,nlv,lmin,nadapt,hadapt)
           call get_layer_thickness(lmax,lmin,nsigma,nadapt,
      +                             hsigma,hadapt,z,h,hlv,hl)	  
 	  do ii=1,3

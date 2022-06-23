@@ -276,18 +276,13 @@ c---------------------------------------------------------
 c compute level structure of z-adaptive levels (zstar)
 c---------------------------------------------------------
 
-        hzad = hadapt + zmed	
-	den  = hadapt - hlv(lmin-1)
-	if (nadapt+lmin-1.eq.lmax) then 
-	  hzad = htot + zmed
-          den  = htot - hlv(lmin-1)	
-	end if
+        hzad = min(htot,hadapt) + zmed	
+	den =  min(htot,hadapt) - hlv(lmin-1)
 
         hbot = 0.	
         do l=lmin,lmin+nadapt-1
           htop = hbot
-          hbot = hlv(l)
-	  if( l .eq. lmax ) hbot = htot  	  
+          hbot = hlv(l)	
           hdl(l) = hzad * (hbot-htop)/den
         end do
 

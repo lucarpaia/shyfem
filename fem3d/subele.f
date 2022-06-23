@@ -940,7 +940,7 @@ c sets up depth array for nodes
 
 	integer nadapt(4)    !number of adaptive sigma level
         integer ladapt(4)    !level of last adaptive sigma level	
-        real hadapt(4)       !depth of last adaptive sigma level
+        real hadapt(3)       !depth of last adaptive sigma level
         real cadapt(levdim,3) !coefficients of adaptive sigma level
 	real hzad,hnod
 
@@ -978,7 +978,6 @@ c----------------------------------------------------------------
 
           call compute_zadaptive_info(ie,nlv,jlhev(:,ie),lmax,
      +		hlv,zenv(:,ie),hm3v(:,ie),nadapt,ladapt,hadapt,cadapt)
-	  call set_zadapt_info(ie,nadapt,hadapt)
 
 c	  -------------------------------------------------------
 c	  nodal values
@@ -992,12 +991,10 @@ c	  -------------------------------------------------------
 	    z = zenv(ii,ie)
 	    zmed = zmed + z
 	    hsig = min(htot,hsigma) + z		!total depth sigma layers
-c           hzad = min(htot,hadapt(ii)) + z	!total depth z-adaptive layers
-c	    if ( ladapt(ii).eq.lmax .and. (htot-hadapt(ii)).gt.0) then
-c	      hzad = hzad + (htot-hadapt(ii))   !correction for bottom layer
-c	    end if  
-	    hzad = hadapt(ii) + z		!total depth z-adaptive layers
-            if ( ladapt(ii).eq.lmax ) hzad = htot + z	!bottom layer	
+            hzad = min(htot,hadapt(ii)) + z	!total depth z-adaptive layers
+	    if ( ladapt(ii).eq.lmax .and. (htot-hadapt(ii)).gt.0) then
+	      hzad = hzad + (htot-hadapt(ii))   !correction for bottom layer
+	    end if  
 
 	    do l=1,nsigma
 	      hdkn(l,k) = - hsig * hldv(l)	!these have already depth
