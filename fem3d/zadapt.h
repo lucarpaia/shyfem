@@ -27,13 +27,13 @@
 !
 c 28.03.2022    lrp     introduce z-adaptive layers
 
-        real rmin_gridmov
-        common /rmin_gridmov/rmin_gridmov
+        integer nadapt_com(4,neldim)
+        common /nadapt_com/nadapt_com
+        save /nadapt_com/
 
-        real rmin_gridtop
-        common /rmin_gridtop/rmin_gridtop
-
-        save /rmin_gridmov/,/rmin_gridtop/
+        real hadapt_com(4,neldim)
+        common /hadapt_com/hadapt_com
+        save /hadapt_com/	
 
         integer iskremap(nlvdim,nkndim)
         common /iskremap/iskremap
