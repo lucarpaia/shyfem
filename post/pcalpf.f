@@ -102,7 +102,8 @@ c set constants for annotation on cw or ccw side of axis
 14    z=kn+2
       xt=xt+z*cth*0.36
       yt=yt+z*sth*0.36
-      call symbol(xt,yt,0.36,isym,angle,3)
+      isym1 = isym(1)           !GGU
+      call symbol(xt,yt,0.36,isym1,angle,3)
       xt=xt+(3.0*cth-0.6*sth)*0.36
       yt=yt+(3.0*sth+0.6*cth)*0.36
       call number(xt,yt,0.18,ex,angle,-1)
@@ -324,9 +325,10 @@ c set constants for annotation on cw or ccw side of axis
 
 c     nchar=ii+1000
       nchar=ii
+      inum1 = inum(1)           !GGU 
 
       !call symbol (xpage,ypage,height,num,angle,nchar)
-      call symbol (xpage,ypage,height,inum,angle,nchar) !ggu CW
+      call symbol (xpage,ypage,height,inum1,angle,nchar) !ggu CW
 
       return
       end

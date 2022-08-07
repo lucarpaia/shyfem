@@ -741,7 +741,8 @@ c leakage dz in [mm/h]
 	  call iff_ts_init(dtime,'wind.dat',2,2,idwind)
 	end if
 
-	call iff_ts_intp(idrain,dtime,r)
+	call iff_ts_intp(idrain,dtime,aux)
+        r = aux(1)
 	call iff_ts_intp(idwind,dtime,aux)
 	w = aux(1)
 

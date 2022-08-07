@@ -1270,10 +1270,12 @@
 	integer vals(n_threads)
 
 	integer ni,no
+        integer valv(1)
 
 	ni = 1
 	no = 1
-	call shympi_allgather_i_internal(ni,no,val,vals)
+        valv(1) = val
+	call shympi_allgather_i_internal(ni,no,valv,vals)
 
 	end subroutine shympi_gather_scalar_i
 
@@ -1864,7 +1866,7 @@
 
 	integer kind(2)
 	real vals(nkn)
-	real val
+	real val(1)
 
 	call shympi_getvals_internal_r(kind,1,nkn
      +                                    ,vals,val)
@@ -1880,7 +1882,7 @@
 
 	integer kind(2)
 	integer vals(nkn)
-	integer val
+	integer val(1)
 
 	call shympi_getvals_internal_i(kind,1,nkn
      +                                    ,vals,val)
