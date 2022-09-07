@@ -2652,6 +2652,13 @@ c*****************************************************************
 	  units = 'degC'
 	  cmin = -10.
 	  cmax = 100.
+        else if( ivar .eq. 13 ) then    ! density
+          name = 'density'
+          what = 'standard_name'
+          std = 'sea_water_density'
+          units = 'kg m-3'
+          cmin = -1000.
+          cmax = +1000.		
         else if( ivar .eq. 14 ) then    ! vertical velocity
           name = 'w_velocity'
           what = 'standard_name'
