@@ -1048,7 +1048,8 @@ c	  -------------------------------------------------------
 	  end do
           do l=lmin,ladapt(4) 
 	    do ii=1,n
-              hzad = min(htot,hadapt(ii)) + zenv(ii,ie)	  
+              hzad = hadapt(ii) + zenv(ii,ie)
+              if ( ladapt(ii).eq.lmax ) hzad = htot + zenv(ii,ie)   !bottom layer
 	      if (l.eq.lmin) then		!non-conformal edge
 	      do lmiss=lmin-1,jlhev(ii,ie),-1
 	        cadapt(lmin,ii) = cadapt(lmin,ii) + cadapt(lmiss,ii)
