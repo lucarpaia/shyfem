@@ -154,7 +154,7 @@ c computes gradients for scalar cc (average gradient information)
               k=nen3v(ii,ie)
               b=ev(ii+3,ie)
               c=ev(ii+6,ie)
-	      ll = max(l,jlhev(k,ie))	!non-conformal elements
+	      ll = max(l,jlhev(ii,ie))	!non-conformal elements
               ggx=ggx+cc(ll,k)*b
               ggy=ggy+cc(ll,k)*c
               aux(l,k)=aux(l,k)+area
@@ -266,7 +266,7 @@ c computes concentration of upwind node (using info on upwind node)
 
         do ii=1,3
           k = nen3v(ii,ienew)
-	  ll = max(l,jlhev(k,ie))		!non-conformal elements	
+	  ll = max(l,jlhev(ii,ie))		!non-conformal elements
           c(ii) = cv(ll,k)
         end do
 
@@ -570,7 +570,7 @@ c computes horizontal tvd fluxes for one element
 		fact = -itot2 + itot1
 
 		llic=max(l,jlhev(ic,ie))		!keep the right transport value
-                llid=max(l,jlhev(id,ie))		!for non-conformal elements	
+                llid=max(l,jlhev(id,ie))		!for non-conformal elements
 
                 kc = nen3v(ic,ie)
                 conc = cl(llic,ic)
