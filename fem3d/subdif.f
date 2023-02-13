@@ -678,7 +678,7 @@ c***************************************************************************
 
 	real area,smag
         
-        integer k,l,ie,ii,lmax
+        integer k,l,ll,ie,ii,lmax
         
 c the FEM method gives for Ux(ie)=unv(ie)*b and for Uy(ie)=unv(ie)*c
        
@@ -700,10 +700,11 @@ c compute the spatial derivates of horizontal velocity
              k=nen3v(ii,ie)
              b(ii)=ev(ii+3,ie)
              c(ii)=ev(ii+6,ie)
-             ux=ux+(uprv(l,k)*b(ii))
-             uy=uy+(uprv(l,k)*c(ii))
-             vx=vx+(vprv(l,k)*b(ii))
-             vy=vy+(vprv(l,k)*c(ii))
+             ll = max(l,jlhev(ii,ie))   !non-conformal elements
+             ux=ux+(uprv(ll,k)*b(ii))
+             uy=uy+(uprv(ll,k)*c(ii))
+             vx=vx+(vprv(ll,k)*b(ii))
+             vy=vy+(vprv(ll,k)*c(ii))
            end do
         
 	   smag = 2.*ux*ux + 2.*vy*vy + ( uy + vx ) **2
