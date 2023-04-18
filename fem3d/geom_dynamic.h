@@ -34,6 +34,8 @@
         common /iwetv/iwetv
         integer inodv(nkndim)
         common /inodv/inodv
+        integer inodtv(nkndim)
+        common /inodtv/inodtv
 
-	save /iwegv/,/iwetv/,/inodv/
+	save /iwegv/,/iwetv/,/inodv/,/inodtv/
 

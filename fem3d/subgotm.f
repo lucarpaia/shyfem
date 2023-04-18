@@ -637,7 +637,7 @@ c handles initialization of gotm
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  lmin = jwlhkv(k)
+	  lmin = jlhkv(k)
 	  do l=lmin,lmax
 	    laux = lmax - l
 	    visv(l,k) = numv_gotm(laux,k)
@@ -1030,7 +1030,7 @@ c	---------------------------------------------------
 
 	!if( any( areakv(1,:) <= 0. ) ) stop 'error stop bnstress: (2)'
 	do k=1,nkn
-	  lmin = jwlhkv(k)
+	  lmin = jlhkv(k)
 	  if( areakv(lmin,k) <= 0. ) stop 'error stop bnstress: (2)'
 	  taub(k) = taub(k) / areakv(lmin,k)
 	end do
@@ -1162,7 +1162,7 @@ c**************************************************************
 	do k=1,nkn
 
 	  lmax = ilhkv(k)
-	  lmin = jwlhkv(k)
+	  lmin = jlhkv(k)
 	  numOfLev = lmax-lmin+1
 	  ubot = uprv(lmax,k)
 	  vbot = vprv(lmax,k)

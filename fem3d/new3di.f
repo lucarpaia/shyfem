@@ -1743,6 +1743,7 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	  dz = dt * wlnv(lmin-1,k) / (va(lmin,k)+1e-12) !lrp: (+eps)
 	  dzmax = max(dzmax,abs(dz))
 	  wlnv(lmin-1,k) = 0.	! ensure no flux across surface - is very small
+				! lrp: comment  to improve tracer-constancy
 	  dzeta(k) = dz
 	end do
 
@@ -1750,7 +1751,8 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	  lmax = ilhkv(k)
 	  lmin = jlhkv(k)
 	  debug = k .eq. 0
-	  do l=lmin+1,lmax
+	  do l=lmin+1,lmax	!lrp: comment   to improve tracer-constancy
+	  !do l=lmin,lmax	!lrp: uncomment to improve tracer-constancy
 	    atop = va(l,k)
 	    if( atop .gt. 0. ) then
 	      wlnv(l-1,k) = wlnv(l-1,k) / atop

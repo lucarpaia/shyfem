@@ -387,7 +387,7 @@ c---------------------------------------------------------
 	do k=1,nkn
 
           lmax = ilhkv(k)	
-	  lmin = jwlhkv(k)
+	  lmin = jlhkv(k)
 	  if (is_dry_node(k)) then	!do not compute if node is dry
 	    dtw(k)   = 0.
 	    tws(k)   = temp(lmin,k)

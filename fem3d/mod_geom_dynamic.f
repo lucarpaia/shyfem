@@ -45,6 +45,7 @@
 	integer, allocatable, save :: iwegv(:)
 	integer, allocatable, save :: iwetv(:)
 	integer, allocatable, save :: inodv(:)
+        integer, allocatable, save :: inodtv(:)
 	integer, allocatable, save :: inode_static(:)
 
 !==================================================================
@@ -71,6 +72,7 @@
 	  deallocate(iwegv)
 	  deallocate(iwetv)
           deallocate(inodv)
+          deallocate(inodtv)
           deallocate(inode_static)
         end if
 	
@@ -82,11 +84,13 @@
 	allocate(iwegv(nel))
 	allocate(iwetv(nel))
 	allocate(inodv(nkn))
+        allocate(inodtv(nkn))
 	allocate(inode_static(nkn))
 	
 	iwegv = 0
 	iwetv = 0
 	inodv = 0
+	inodtv = 0
 	inode_static = 0
 
        	end subroutine mod_geom_dynamic_init	

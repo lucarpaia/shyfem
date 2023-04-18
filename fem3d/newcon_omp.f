@@ -353,7 +353,8 @@ c*****************************************************************
 	use levels
 	use basin
 	use mod_layer_thickness
-      
+	use mod_geom_dynamic
+ 
       implicit none
       
       integer,intent(in) :: ie,nlvddi,nlev,itvd,itvdv
@@ -385,7 +386,6 @@ c*****************************************************************
         double precision :: flux_tot,flux_tot1,flux_top,flux_bot
         double precision :: rstot,hn,ho,cdummy,alow,adiag,ahigh
         double precision :: rkmin,rkmax,cconz
-	double precision :: fw_wetdry,clp_wetdry 	
       double precision,dimension(3) :: fw,fd,fl,fnudge
       double precision,dimension(3) :: b,c,f,wdiff
       double precision,dimension(0:nlvddi+1) :: hdv,haver
@@ -770,42 +770,29 @@ c*****************************************************************
      +				+ dt *  ( 
      +					    hold(l,ii)*fnudge(ii)
 c     +					  + 3.*fl(ii) 
-     +					  - fw(ii)
+     +					  - fw(ii) * real(inodtv(k))
 c     +					  - rk3*hmed*wdiff(ii)
-     +					  - fd(ii)
+     +					  - fd(ii) * real(inodtv(k))
      +					)
      +			               )
 	  !clm(1,ii) = 0.		!ERIC
 	  !clp(ilevel,ii) = 0.
-	  ! next check to be deleted
+	  ! next check to be deleted, lrp: comment to improve tracer-constancy
 	  if( clm(1,ii) /= 0. .or. clp(ilevel,ii) /= 0. ) then
 	    write(6,*) ie,ii,ilevel
 	    write(6,*) clm(1,ii),clp(ilevel,ii)
 	    stop 'error stop: assumption violated'
 	  end if
 	  
-	  alow  = aj4 * dt * clm(l,ii)
-	  ahigh = aj4 * dt * clp(l,ii)
-	  adiag = aj4 * dt * clc(l,ii) 
+	  alow  = aj4 * dt * clm(l,ii) * real(inodtv(k))
+	  ahigh = aj4 * dt * clp(l,ii) * real(inodtv(k))
+	  adiag = aj4 * dt * clc(l,ii) * real(inodtv(k))
      +			+ aj4 * (1.+dt*finu(l,ii)) * hnew(l,ii)
 	  cn(l,k)    = cn(l,k)    + cexpl
 	  clow(l,k)  = clow(l,k)  + alow
 	  chigh(l,k) = chigh(l,k) + ahigh   
           cdiag(l,k) = cdiag(l,k) + adiag
 
-!         special treatement at wet-dry nodes with multiple levels:
-!         vertical flux at free-surface should be zero on wet side 
-!         but it is not and I have to add it manually to preserve 
-!         tracer constancy	  
-	  if (l.eq.jlevelk .and. jlhkv(k).lt.jlevelk) then
-            w = wl(l-1,ii)
-            clp_wetdry = - aa*w
-            fw_wetdry = aat * vflux(l-1,ii)		  
-	    cexpl = aj4 * dt * fw_wetdry
-            ahigh = aj4 * dt * clp_wetdry
-            cn(l-1,k)    = cn(l-1,k)    + cexpl
-            chigh(l-1,k) = chigh(l-1,k) + ahigh
-	  end if	  
 
           end if                        !end of sanity check
 
@@ -819,6 +806,13 @@ c     +					  - rk3*hmed*wdiff(ii)
 	end do
 
 	end do		! loop over l
+
+	!lrp: uncomment to improve tracer-constancy	
+        !do ii=1,3
+        !  k=kn(ii)
+        !  cexpl = -aj4 * dt * vflux(jlhkv(k)-1,ii)
+        !  cn(jlhkv(k),k)  = cn(jlhkv(k),k)    + cexpl
+	!end do
 	
 ! ----------------------------------------------------------------
 !  end of loop over l
@@ -855,6 +849,7 @@ c     +					  - rk3*hmed*wdiff(ii)
 	use levels
 	use basin
 	use shympi
+        use mod_geom_dynamic
 	
 	implicit none
 	
@@ -873,6 +868,7 @@ c     +					  - rk3*hmed*wdiff(ii)
 	integer :: l,ilevel,jlevel,lstart,i,ii,ie,n,ibase
 	double precision :: mflux,qflux,cconz
 	double precision :: loading,aux,cload
+        double precision :: cn2d, cdiag2d
 
 	double precision, parameter :: d_tiny = tiny(1.d+0)
 	double precision, parameter :: r_tiny = tiny(1.)
@@ -882,7 +878,7 @@ c     +					  - rk3*hmed*wdiff(ii)
 ! ----------------------------------------------------------------
 
       	  ilevel = ilhkv(k)
-          jlevel = jwlhkv(k)
+          jlevel = jlhkv(k)
 
 	  do l=jlevel,ilevel
 
@@ -919,21 +915,28 @@ c     +					  - rk3*hmed*wdiff(ii)
 !  compute concentration for each node (solve system)
 ! ----------------------------------------------------------------
 
-        do l=jlevel-1,jlhkv(k),-1
-          cn(l,k)=cn1(l,k)
-	end do
+	if((aa .eq. 0. .and. ad .eq. 0.).or.(nlv .eq. 1)
+     +					.or.inodtv(k)==0) then
 
-	if((aa .eq. 0. .and. ad .eq. 0.).or.(nlv .eq. 1)) then
-
-	  if( nlv .gt. 1 ) then
-	    write(6,*) 'conz: computing explicitly ',nlv
+	  !tracer dry areas: barotropic tracer
+          if (inodtv(k)==0) then
+            cn2d = 0.; cdiag2d = 0.
+            do l=jlevel,ilevel
+              cn2d = cn2d + cn(l,k)
+              cdiag2d = cdiag2d + cdiag(l)
+            end do
+            if( cdiag2d == 0. ) goto 99
+            do l=jlevel,ilevel
+              cn(l,k) = cn2d/cdiag2d
+            end do
+	  !computing explicitly
+          else
+	    do l=jlevel,ilevel
+	      if(cdiag(l).ne.0.) then
+	        cn(l,k)=cn(l,k)/cdiag(l)
+	      end if
+	    end do
 	  end if
-
-	  do l=jlevel,ilevel
-	    if(cdiag(l).ne.0.) then
-	      cn(l,k)=cn(l,k)/cdiag(l)
-	    end if
-	  end do
 
 	else
 

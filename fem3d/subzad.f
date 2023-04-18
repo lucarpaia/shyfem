@@ -56,6 +56,7 @@ c******************************************************************
         real   , save, allocatable :: hadapt_com(:,:) !closing depth of adaptive layers
 	integer, save, allocatable :: iskremap(:,:) !remap yes/no
 	integer, save, allocatable :: iseremap(:,:) !remap yes/no
+        integer, save, allocatable :: iskbathywall(:,:) !is layer on a resolved bathymetry wall yes/no
 
 !==================================================================
         end module zadapt
@@ -508,12 +509,6 @@ c
 c e.g. jlhkv(k)=jlhkv(ii,ie)=2 means first layer has been removed 
 c      for node k <-> (ii,ie) but only if k is not wet/dry
 c
-c at wet/dry nodes (boundary nodes) jlhkv is computed only "on wet side".
-c This is because many shyfem subroutines work with non-negative layers
-c and, at wet/dry nodes with z-adaptation, it may happen that zero-depth 
-c layers separate layers on "wet side" from layers on "dry side": 
-c l=jwlhkv,ilhkv 
-c means that, at boundary nodes, you loop only layers on "wet side"
 
         use zadapt
         use levels
@@ -521,7 +516,6 @@ c means that, at boundary nodes, you loop only layers on "wet side"
         use shympi
 	use mod_hydro
 	use mod_layer_thickness
-	use mod_geom_dynamic
 
         implicit none
 
@@ -534,10 +528,6 @@ c means that, at boundary nodes, you loop only layers on "wet side"
         integer nadapt(4)
         real hadapt(4)	
 
-	isein(ie)  = iwegv(ie).eq. 0
-        iseout(ie) = iwegv(ie).gt. 0
-	iskin(k)   = inodv(k) .ne.-1
-
 	r = getpar('rztop')
 
         call get_sigma_info(nlev,nsigma,hsigma)
@@ -547,7 +537,6 @@ c means that, at boundary nodes, you loop only layers on "wet side"
 	iskremap = 1		  !initialize 1: no config change
 
         jlhkv=huge(1)
-        jwlhkv=huge(1)
 
 c---------------------------------------------------------
 c loop over element
@@ -579,12 +568,6 @@ c---------------------------------------------------------
 	      jlhkv(k)=min(jlhev(ii,ie),ilhkv(k))
 	    end if
 
-            if (isein(ie).or.                            !boundary nodes:
-     +          (iseout(ie).and.iskin(k))) then          !jwlhkv computed on wet side 
-              if (jlhev(ii,ie).lt.jwlhkv(k)) then
-                jwlhkv(k)=min(jlhev(ii,ie),ilhkv(k))
-              end if
-            end if
 
 c---------------------------------------------------------
 c set rlhkv
@@ -626,12 +609,6 @@ c---------------------------------------------------------
           call shympi_exchange_2d_node(jlhkv)
         end if
 
-        if( shympi_partition_on_elements() ) then
-          !call shympi_comment('shympi_elem: exchange jlhkv - min')
-          call shympi_exchange_2d_nodes_min(jwlhkv)
-        else
-          call shympi_exchange_2d_node(jwlhkv)
-        end if
 
         if( shympi_partition_on_elements() ) then
           !call shympi_comment('shympi_elem: exchange ilhkv - max')
@@ -651,6 +628,85 @@ c end of routine
 c---------------------------------------------------------
 
         end
+
+c*****************************************************************
+
+        subroutine check_bathywall
+
+c returns a flag for layer belonging to resolved bathymetry vertical 
+c slope in case of z-layer modelling:
+c				
+c				  flag	
+c       -------x------ 
+c			layer 1	=  0
+c 	.......x------
+c	       !        layer 2 =  1
+c              x------
+c	       !        layer 3 =  0 
+c	       x......				
+c       
+c	ilhv=1   ilhv=3
+c
+
+        use zadapt
+        use levels
+        use basin
+
+	implicit none
+
+	integer :: ie,ii,k,lmin
+
+        iskbathywall = 1
+
+        do ie=1,nel
+          do ii=1,3
+            k = nen3v(ii,ie)
+            iskbathywall(ilhv(ie),k) = 0 !flag for bottom layers
+          end do
+        end do
+
+        do k=1,nkn
+          lmin = ilmkv(k)
+          iskbathywall(1:lmin,k) = 0	!flag for upper layers
+        end do
+
+        end
+
+c*****************************************************************
+
+        logical function layer_exist(l,k)
+
+c returns a boolean to skip non existing layers in dry areas	
+c in case of z-layer modelling:
+c                               
+c                                  h  
+c        
+c       _______         layer 1 =  >0
+c       .......x------
+c              !        layer 2 =  =0
+c              x------
+c              !______  layer 3 =  >0
+c              x......                          
+c       
+c
+
+        use mod_geom_dynamic
+        use zadapt
+
+	implicit none
+	
+	integer,  intent(in) :: l
+	integer, intent(in) :: k
+	logical :: iskout
+
+        iskout(k)   = inodv(k) .lt. 0
+
+	layer_exist = .true.
+	if (iskbathywall(l,k)==1 .and. iskout(k)) then
+	  layer_exist = .false.
+	end if
+
+	end function
 
 c*****************************************************************	
 
@@ -772,6 +828,8 @@ c remap depth array for nodes
 
 	real areael,areafv
 	real areaele
+
+        logical :: islay,layer_exist
 
         bdebug = .false.
 	hmin = -99999.
@@ -900,10 +958,11 @@ c----------------------------------------------------------------
 	      hdkn(l,k) = hdkn(l,k) / areafv
 	    end if
 	  end do
-	  lmin = jwlhkv(k)
+          lmin = jlhkv(k)
           do l=lmin,lremapk
-            h = hdkn(l,k)
-            if( h <= hmin ) then
+            islay = layer_exist(l,k)
+            h = hdkn(l,k) 
+            if( (h <= hmin) .and. islay ) then
               write(6,*) 'error computing layer thickness'
               write(6,*) 'no layer depth in node: ',k,l,lmax
               write(6,*) 'depth: ',h
@@ -1391,11 +1450,13 @@ c******************************************************************
         allocate(hadapt_com(4,nel))	
 	allocate(iseremap(nlvdi,nel))
 	allocate(iskremap(nlvdi,nkn))
+        allocate(iskbathywall(nlvdi,nkn))
 
         nadapt_com  = 0
 	hadapt_com  = 0.	
 	iseremap = 1
 	iskremap = 1
+        call check_bathywall
 
 	end
 

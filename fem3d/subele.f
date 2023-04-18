@@ -218,9 +218,11 @@ c computes depth of node k for all layers
 
 	integer ndim
 	integer l
+	logical islay(nlvdi)
+	logical layer_exist
 
 	ndim = nlev
-        flev = jwlhkv(k)	
+        flev = jlhkv(k)	
 	nlev = ilhkv(k)
 	if( nlev > ndim ) goto 99
 
@@ -235,6 +237,11 @@ c computes depth of node k for all layers
 	else
 	  stop 'error stop dep3dnod: Cannot use mode = 0'
 	end if
+			!many algorithms (turbulence) works on a
+			!water col with strictly positive layers
+        do l=flev,nlev	!if lay does not exist put a dummy value
+	  if ( .not.layer_exist(l,k) ) h(l) = hldv(l)  !non zero 
+        end do
 
 	return
    99	continue
@@ -944,6 +951,8 @@ c sets up depth array for nodes
         real cadapt(levdim,3) !coefficients of adaptive sigma level
 	real hzad,hnod
 
+	logical :: islay,layer_exist
+
         bdebug = .false.
 	hmin = -99999.
 	hmin = 0.
@@ -1114,10 +1123,11 @@ c----------------------------------------------------------------
 	      hdkn(l,k) = hdkn(l,k) / areafv
 	    end if
 	  end do
-	  lmin = jwlhkv(k)
+	  lmin = jlhkv(k)
           do l=lmin,lmax
+            islay = layer_exist(l,k)
             h = hdkn(l,k)
-            if( h <= hmin ) then
+            if( (h <= hmin) .and. islay ) then
               write(6,*) 'error computing layer thickness'
               write(6,*) 'no layer depth in node: ',k,l,lmax
               write(6,*) 'depth: ',h
