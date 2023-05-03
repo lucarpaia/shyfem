@@ -269,7 +269,7 @@ c sets (dynamic) array inodtv
 c
 c inodtv 
 c        1: internal node for tracer
-c        0: boundary node or node outside system for tracer
+c        0: out of system node for tracer
 c
 
         use mod_geom_dynamic
@@ -292,12 +292,21 @@ c set up inodtv
 
         do k=1,nkn
 
-	  !dry and boundary nodes are out
-          inodtv(k) = merge( 0, 1, inodv(k) .lt. 0)
+	  !dry nodes are out
+          inodtv(k) = merge( 0, 1, inodv(k) .eq. -2)
 
 
 	  !we are more conservative and we exclude also nodes at
-	  !critical depth which is a certain perc of the surface layer thickness
+	  !critical depth which is a certain perc of the surface layer thickness:
+	  !this is to have the following situation always treated as dry: 
+c
+c          ______________         layer 1                                  
+c          .......x...... |rztop
+c	     1	  !	  |
+c          .......x	  |hlvmin
+c                 !   2       	  layer 2
+c                 x......
+c 
           depth = max(hkv_min(k) + zov(k), 0.)
           limdepth = rztop * hldv(jlhkv(k)) + hlvmin * hldv(jlhkv(k)+1)
           inodtv(k) = merge( 0, inodtv(k), depth .le. limdepth ) 

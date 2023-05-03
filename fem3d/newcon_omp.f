@@ -878,7 +878,8 @@ c     +					  - rk3*hmed*wdiff(ii)
 ! ----------------------------------------------------------------
 
       	  ilevel = ilhkv(k)
-          jlevel = jlhkv(k)
+          jlevel = jwlhkv(k)
+          if(inodtv(k)==0) jlevel = jlhkv(k)
 
 	  do l=jlevel,ilevel
 
@@ -914,6 +915,10 @@ c     +					  - rk3*hmed*wdiff(ii)
 ! ----------------------------------------------------------------
 !  compute concentration for each node (solve system)
 ! ----------------------------------------------------------------
+
+        do l=jlevel-1,jlhkv(k),-1
+          cn(l,k)=cn1(l,k)
+	end do
 
 	if((aa .eq. 0. .and. ad .eq. 0.).or.(nlv .eq. 1)
      +					.or.inodtv(k)==0) then

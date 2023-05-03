@@ -524,7 +524,6 @@ c
 	integer lminnv,lminov,ladaptov
         real hsigma
 	real getpar,r
-	logical isein,iseout,iskin
         integer nadapt(4)
         real hadapt(4)	
 
@@ -568,7 +567,6 @@ c---------------------------------------------------------
 	      jlhkv(k)=min(jlhev(ii,ie),ilhkv(k))
 	    end if
 
-
 c---------------------------------------------------------
 c set rlhkv
 c---------------------------------------------------------  	      
@@ -609,7 +607,6 @@ c---------------------------------------------------------
           call shympi_exchange_2d_node(jlhkv)
         end if
 
-
         if( shympi_partition_on_elements() ) then
           !call shympi_comment('shympi_elem: exchange ilhkv - max')
           call shympi_exchange_2d_nodes_max(rlhkv)
@@ -622,6 +619,71 @@ c---------------------------------------------------------
         !else
         !  call shympi_exchange_3d_node(iskremap)
         !end if
+
+c---------------------------------------------------------
+c end of routine
+c---------------------------------------------------------
+
+        end
+
+c*****************************************************************
+
+        subroutine set_jwlhkv
+		
+c set nodal index for top layer jwlhkv array - 
+c only needs zenv
+c at wet/dry nodes (boundary nodes) jlhkv is computed only "on wet side".
+c This is because many shyfem subroutines work with non-negative layers
+c and, at wet/dry nodes with z-adaptation, it may happen that zero-depth 
+c layers separate layers on "wet side" from layers on "dry side": 
+c l=jwlhkv,ilhkv 
+c means that, at boundary nodes, you loop only layers on "wet side"
+
+        use levels
+        use basin
+        use shympi
+	use mod_geom_dynamic
+
+        implicit none
+
+        integer ie,ii,k
+	logical isein,iseout,iskin
+
+	isein(ie)  = iwegv(ie).eq. 0
+        iseout(ie) = iwegv(ie).gt. 0
+	iskin(k)   = inodv(k) .ne.-1
+
+        jwlhkv=huge(1)
+
+c---------------------------------------------------------
+c loop over element
+c---------------------------------------------------------
+
+        do ie=1,nel
+
+	  do ii=1,3
+	    k=nen3v(ii,ie)
+
+c---------------------------------------------------------
+c set jwlhkv
+c---------------------------------------------------------
+
+            if (isein(ie).or.                            !boundary nodes:
+     +          (iseout(ie).and.iskin(k))) then          !jwlhkv computed on wet side 
+              if (jlhev(ii,ie).lt.jwlhkv(k)) then
+                jwlhkv(k)=min(jlhev(ii,ie),ilhkv(k))
+              end if
+            end if
+
+          end do
+  	end do
+
+        if( shympi_partition_on_elements() ) then
+          !call shympi_comment('shympi_elem: exchange jlhkv - min')
+          call shympi_exchange_2d_nodes_min(jwlhkv)
+        else
+          call shympi_exchange_2d_node(jwlhkv)
+        end if
 
 c---------------------------------------------------------
 c end of routine

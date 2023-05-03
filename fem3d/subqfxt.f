@@ -173,6 +173,7 @@ c computes new temperature (forced by heat flux) - 3d version
 	use levels
         use basin, only : xgv,ygv  
         use mod_hydro_print  
+	use mod_geom_dynamic
 
 	implicit none
 
@@ -387,7 +388,7 @@ c---------------------------------------------------------
 	do k=1,nkn
 
           lmax = ilhkv(k)	
-	  lmin = jlhkv(k)
+	  lmin = jwlhkv(k)
 	  if (is_dry_node(k)) then	!do not compute if node is dry
 	    dtw(k)   = 0.
 	    tws(k)   = temp(lmin,k)

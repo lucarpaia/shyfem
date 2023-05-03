@@ -57,8 +57,8 @@ c returns relevant info for z-adaptive layers
 	integer l,levmax
 	real rgridtop,rgridmov
 
-	rgridmov = 0.125 !getpar('rzmov')
-	rgridtop = 0.200 !getpar('rztop') !not working
+	rgridmov = 1000. !getpar('rzmov')
+	rgridtop =-1000. !getpar('rztop') !not working
 
         lmin = 1
         levmax = 0       !no adapation -> all to zero	
