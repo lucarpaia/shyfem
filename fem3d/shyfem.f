@@ -816,6 +816,8 @@ c*****************************************************************
 	itvd = nint(getpar("itvd"))
 	
 	call tvd_init(itvd)
+        call setnodt		!set up tracer dry areas
+        call set_jwlhkv		!set up tracer top layer index
 	
 	if(itemp .gt. 0) nscal = nscal +1
 	if(isalt .gt. 0) nscal = nscal +1

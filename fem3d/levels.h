@@ -34,6 +34,15 @@
         integer ilhv(neldim)
         common /ilhv/ilhv
 
+        integer jlhkv(nkndim)
+        common /jlhkv/jlhkv
+
+        integer jlhv(neldim)
+        common /jlhv/jlhv
+
+        integer jwlhkv(nkndim)
+        common /jwlhkv/jwlhkv
+
         real hlv(nlvdim), hldv(nlvdim)
         common /hlv/hlv, /hldv/hldv
 
@@ -44,4 +53,5 @@
         common /ilmkv/ilmkv
 
 	save /ilhkv/,/ilhv/,/hlv/,/hldv/,/ilmv/,/ilmkv/
+	save /jlhkv/,/jlhv/,/jwlhkv/
 
