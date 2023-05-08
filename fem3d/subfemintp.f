@@ -727,7 +727,7 @@
 
 	if( bdebug_internal ) write(6,*) 'breg = ',breg
 
-	if( .not. breg .and. nexp > 0 
+	if( nexp > 0
      +		.and. nexp /= nkn_fem .and. nexp /= nel_fem) then
 	  allocate(pinfo(id)%nodes(nexp))	!lateral BC
 	  pinfo(id)%nodes = nodes
