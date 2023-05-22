@@ -85,7 +85,6 @@ c 16.02.2019	ggu	changed VERS_7_5_60
 c 13.03.2019	ggu	changed VERS_7_5_61
 c 21.05.2019	ggu	changed VERS_7_5_62
 c 06.11.2019	ggu	eliminated femtime
-c 28.03.2022    lrp     introduce z-adaptive layers
 c
 c*****************************************************************
 

@@ -529,7 +529,7 @@ c           ------------------------------------------------------
 c           update viscosity and diffusivity
 c           ------------------------------------------------------
 
-	    do l=flev,nlev
+	    do l=flev-1,nlev
 	      laux = nlev - l
 	      visv(l,k) = num(laux)
 	      difv(l,k) = nuh(laux)
@@ -638,7 +638,7 @@ c handles initialization of gotm
 	do k=1,nkn
 	  lmax = ilhkv(k)
 	  lmin = jlhkv(k)
-	  do l=lmin,lmax
+	  do l=lmin-1,lmax
 	    laux = lmax - l
 	    visv(l,k) = numv_gotm(laux,k)
 	    difv(l,k) = nuhv_gotm(laux,k)

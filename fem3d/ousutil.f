@@ -105,6 +105,7 @@ c transforms transports at elements to velocities at nodes
 
 	  area = area_elem(ie)
 	  lmax = ilhv(ie)
+	  lmin = 1
 	  call compute_levels_on_element(ie,zenv,zeta)
 	  zmin = minval(zenv(:,ie))
           call compute_zadapt_info(zmin,hlv,nsigma,lmax,

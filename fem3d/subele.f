@@ -245,7 +245,7 @@ c computes depth of node k for all layers
 
 	return
    99	continue
-	write(6,*) 'k,ndim,nlev: ',k,ndim,nlev
+	write(6,*) 'k,ndim,flev,nlev: ',k,ndim,flev,nlev
 	stop 'error stop dep3dnod: nlev>ndim'
 	end
 	
@@ -1185,7 +1185,7 @@ c computes content of water mass in total domain
 	double precision masscont
 	integer mode
 
-	integer k,l,nlev
+	integer k,l,nlev,flev
 	real mass
 	double precision total
         real volnode
@@ -1196,7 +1196,8 @@ c computes content of water mass in total domain
 
 	do k=1,nkn
 	  nlev = ilhkv(k)
-	  do l=1,nlev
+	  flev = jlhkv(k)
+	  do l=flev,nlev
 	    total = total + volnode(l,k,mode)
 	  end do
 	end do
@@ -1224,7 +1225,7 @@ c computes content of scalar in total domain
 	real scal(nlvdi,nkn)
 
 	logical, parameter :: bdebug = .false.
-	integer k,l,nlev
+	integer k,l,nlev,flev
 	real mass
 	double precision total
         real volnode
@@ -1235,7 +1236,8 @@ c computes content of scalar in total domain
 
 	do k=1,nkn
 	  nlev = ilhkv(k)
-	  do l=1,nlev
+	  flev = jlhkv(k)
+	  do l=flev,nlev
 	    total = total + volnode(l,k,mode) * scal(l,k)
 	    if( bdebug .and. scal(l,k) .gt. 0. ) then
 		write(6,*) 'scalcont: ',l,k,scal(l,k)
@@ -1264,14 +1266,15 @@ c computes content of scalar at node k
         integer mode,k
         real scal(nlvdi,nkn)
  
-        integer l,nlev
+        integer l,nlev,flev
         double precision total
         real volnode
  
         total = 0.
  
           nlev = ilhkv(k)
-          do l=1,nlev
+	  flev = jlhkv(k)
+          do l=flev,nlev
             total = total + volnode(l,k,mode) * scal(l,k)
           end do
  
@@ -1295,14 +1298,15 @@ c computes content of scalar at node k (with given depth)
         real scal(nlvdi,nkn)
         real depth
  
-        integer l,nlev
+        integer l,nlev,flev
         double precision total
         real areanode
  
         total = 0.
  
           nlev = ilhkv(k)
-          do l=1,nlev
+	  flev = jlhkv(k)
+          do l=flev,nlev
             total = total + depth * areanode(l,k,+1) * scal(l,k)
           end do
  
