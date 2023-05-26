@@ -529,7 +529,7 @@ c           ------------------------------------------------------
 c           update viscosity and diffusivity
 c           ------------------------------------------------------
 
-	    do l=flev-1,nlev
+	    do l=flev,nlev
 	      laux = nlev - l
 	      visv(l,k) = num(laux)
 	      difv(l,k) = nuh(laux)
@@ -637,8 +637,8 @@ c handles initialization of gotm
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-	  lmin = jlhkv(k)
-	  do l=lmin-1,lmax
+	  lmin = jwlhkv(k)
+	  do l=lmin,lmax
 	    laux = lmax - l
 	    visv(l,k) = numv_gotm(laux,k)
 	    difv(l,k) = nuhv_gotm(laux,k)
@@ -1030,7 +1030,7 @@ c	---------------------------------------------------
 
 	!if( any( areakv(1,:) <= 0. ) ) stop 'error stop bnstress: (2)'
 	do k=1,nkn
-	  lmin = jlhkv(k)
+	  lmin = jwlhkv(k)
 	  if( areakv(lmin,k) <= 0. ) stop 'error stop bnstress: (2)'
 	  taub(k) = taub(k) / areakv(lmin,k)
 	end do
@@ -1162,7 +1162,7 @@ c**************************************************************
 	do k=1,nkn
 
 	  lmax = ilhkv(k)
-	  lmin = jlhkv(k)
+	  lmin = jwlhkv(k)
 	  numOfLev = lmax-lmin+1
 	  ubot = uprv(lmax,k)
 	  vbot = vprv(lmax,k)

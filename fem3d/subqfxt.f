@@ -540,7 +540,7 @@ c         ---------------------------------------------------------
 
 	  if( k == kdebug ) write(444,*) icall,bice,bicecover,buseice
 	  if( bice ) then
-            hm = depnode(lmin,k,mode)
+            hm = depnode(1,k,mode)
             tm = temp(lmin,k)
             sm = saltv(lmin,k)
 	    call get_pe_values(k,r,e,eeff)

@@ -1440,7 +1440,7 @@ c in case of negative flux (qflux<0) must check if node is OBC (BUG_2010_01)
 
 	do k=1,ntot
 	  ilevel = ilhkv(k)
-          jlevel = jlhkv(k)
+          jlevel = jlhkv(k)       
 	  do l=jlevel,ilevel
             !mflux = cbound(l,k)		!mass flux has been passed
 	    cconz = cbound(l,k)		!concentration has been passed
@@ -1475,7 +1475,7 @@ c----------------------------------------------------------------
 
 	  do k=1,ntot
 	   ilevel = ilhkv(k)
-           jlevel = jlhkv(k)
+           jlevel = jlhkv(k)	  
 	   do l=jlevel,ilevel
 	    if(cdiag(l,k).ne.0.) then
 	      cn(l,k)=cn(l,k)/cdiag(l,k)
@@ -1487,7 +1487,7 @@ c----------------------------------------------------------------
 
 	do k=1,ntot
 	  ilevel = ilhkv(k)
-          jlevel = jlhkv(k)
+          jlevel = jlhkv(k)	      
 	  aux=1./cdiag(jlevel,k)
 	  chigh(jlevel,k)=chigh(jlevel,k)*aux
 	  cn(jlevel,k)=cn(jlevel,k)*aux
@@ -1969,7 +1969,7 @@ c-----------------------------------------------------------------
 	do k=1,nkn
 	  bdebug1 = k .eq. -1
 	  ilevel = ilhkv(k)
-          jlevel = jlhkv(k)
+          jlevel = jlhkv(k)	
           if( is_zeta_bound(k) ) cycle
 	  do l=jlevel,ilevel
             voltot = cdiag(l,k)
@@ -2186,7 +2186,7 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-          lmin = jlhkv(k)
+          lmin = jwlhkv(k)	
 	  amin = +1.e+30
 	  amax = -1.e+30
 	  do l=lmin,lmax
@@ -2205,7 +2205,7 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-          lmin = jlhkv(k)
+          lmin = jwlhkv(k)	  
 	  do l=lmin,lmax
 	    qflux = mfluxv(l,k)
 	    if( qflux .gt. 0. ) then
@@ -2222,7 +2222,7 @@ c---------------------------------------------------------------
 
 	do ie=1,nel
 	  lmax = ilhv(ie)
-          lmin = jlhv(ie)
+          lmin = jlhv(ie)	      
 	  do l=lmin,lmax
 	    amin = +1.e+30
 	    amax = -1.e+30
@@ -2253,7 +2253,7 @@ c---------------------------------------------------------------
 	 !if( .not. is_external_boundary(k) ) then	!might be relaxed
 	 if( .not. is_zeta_bound(k) ) then	!might be relaxed
 	  lmax = ilhkv(k)
-          lmin = jlhkv(k)
+          lmin = jwlhkv(k)		 
 	  do l=lmin,lmax
 	    c = cnv(l,k)
 	    !rm1 = rmin(l,k)

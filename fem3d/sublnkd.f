@@ -262,64 +262,6 @@ c now mark open boundary nodes
         end
 
 c****************************************************************
-
-        subroutine setnodt
-
-c sets (dynamic) array inodtv
-c
-c inodtv 
-c        1: internal node for tracer
-c        0: out of system node for tracer
-c
-
-        use mod_geom_dynamic
-	use mod_hydro
-	use mod_depth
-	use levels
-        use basin
-        use shympi
-
-        implicit none
-
-        integer k
-        double precision depth,limdepth
-	real getpar,rztop,hlvmin
-
-	rztop = getpar('rztop')
-        hlvmin = getpar('hlvmin')
-
-c set up inodtv
-
-        do k=1,nkn
-
-	  !dry nodes are out
-          inodtv(k) = merge( 0, 1, inodv(k) .eq. -2)
-
-
-	  !we are more conservative and we exclude also nodes at
-	  !critical depth which is a certain perc of the surface layer thickness:
-	  !this is to have the following situation always treated as dry: 
-c
-c          ______________         layer 1                                  
-c          .......x...... |rztop
-c	     1	  !	  |
-c          .......x	  |hlvmin
-c                 !   2       	  layer 2
-c                 x......
-c 
-          depth = max(hkv_min(k) + zov(k), 0.)
-          limdepth = rztop * hldv(jlhkv(k)) + hlvmin * hldv(jlhkv(k)+1)
-          inodtv(k) = merge( 0, inodtv(k), depth .le. limdepth ) 
-
-        end do
-
-        !call shympi_comment('exchanging inodv')
-        call shympi_exchange_2d_node(inodtv)
-        !call shympi_barrier
-
-        end
-
-c****************************************************************
 c****************************************************************
 c****************************************************************
 

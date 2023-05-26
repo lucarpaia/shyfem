@@ -218,11 +218,9 @@ c computes depth of node k for all layers
 
 	integer ndim
 	integer l
-	logical islay(nlvdi)
-	logical layer_exist
 
 	ndim = nlev
-        flev = jlhkv(k)	
+        flev = jwlhkv(k)	
 	nlev = ilhkv(k)
 	if( nlev > ndim ) goto 99
 
@@ -237,15 +235,10 @@ c computes depth of node k for all layers
 	else
 	  stop 'error stop dep3dnod: Cannot use mode = 0'
 	end if
-			!many algorithms (turbulence) works on a
-			!water col with strictly positive layers
-        do l=flev,nlev	!if lay does not exist put a dummy value
-	  if ( .not.layer_exist(l,k) ) h(l) = hldv(l)  !non zero 
-        end do
 
 	return
    99	continue
-	write(6,*) 'k,ndim,flev,nlev: ',k,ndim,flev,nlev
+	write(6,*) 'k,ndim,nlev: ',k,ndim,nlev
 	stop 'error stop dep3dnod: nlev>ndim'
 	end
 	
@@ -951,8 +944,6 @@ c sets up depth array for nodes
         real cadapt(levdim,3) !coefficients of adaptive sigma level
 	real hzad,hnod
 
-	logical :: islay,layer_exist
-
         bdebug = .false.
 	hmin = -99999.
 	hmin = 0.
@@ -1123,11 +1114,10 @@ c----------------------------------------------------------------
 	      hdkn(l,k) = hdkn(l,k) / areafv
 	    end if
 	  end do
-	  lmin = jlhkv(k)
+	  lmin = jwlhkv(k)
           do l=lmin,lmax
-            islay = layer_exist(l,k)
             h = hdkn(l,k)
-            if( (h <= hmin) .and. islay ) then
+            if( h <= hmin ) then
               write(6,*) 'error computing layer thickness'
               write(6,*) 'no layer depth in node: ',k,l,lmax
               write(6,*) 'depth: ',h
@@ -1185,7 +1175,7 @@ c computes content of water mass in total domain
 	double precision masscont
 	integer mode
 
-	integer k,l,nlev,flev
+	integer k,l,nlev
 	real mass
 	double precision total
         real volnode
@@ -1196,8 +1186,7 @@ c computes content of water mass in total domain
 
 	do k=1,nkn
 	  nlev = ilhkv(k)
-	  flev = jlhkv(k)
-	  do l=flev,nlev
+	  do l=1,nlev
 	    total = total + volnode(l,k,mode)
 	  end do
 	end do
@@ -1225,7 +1214,7 @@ c computes content of scalar in total domain
 	real scal(nlvdi,nkn)
 
 	logical, parameter :: bdebug = .false.
-	integer k,l,nlev,flev
+	integer k,l,nlev
 	real mass
 	double precision total
         real volnode
@@ -1236,8 +1225,7 @@ c computes content of scalar in total domain
 
 	do k=1,nkn
 	  nlev = ilhkv(k)
-	  flev = jlhkv(k)
-	  do l=flev,nlev
+	  do l=1,nlev
 	    total = total + volnode(l,k,mode) * scal(l,k)
 	    if( bdebug .and. scal(l,k) .gt. 0. ) then
 		write(6,*) 'scalcont: ',l,k,scal(l,k)
@@ -1266,15 +1254,14 @@ c computes content of scalar at node k
         integer mode,k
         real scal(nlvdi,nkn)
  
-        integer l,nlev,flev
+        integer l,nlev
         double precision total
         real volnode
  
         total = 0.
  
           nlev = ilhkv(k)
-	  flev = jlhkv(k)
-          do l=flev,nlev
+          do l=1,nlev
             total = total + volnode(l,k,mode) * scal(l,k)
           end do
  
@@ -1298,15 +1285,14 @@ c computes content of scalar at node k (with given depth)
         real scal(nlvdi,nkn)
         real depth
  
-        integer l,nlev,flev
+        integer l,nlev
         double precision total
         real areanode
  
         total = 0.
  
           nlev = ilhkv(k)
-	  flev = jlhkv(k)
-          do l=flev,nlev
+          do l=1,nlev
             total = total + depth * areanode(l,k,+1) * scal(l,k)
           end do
  

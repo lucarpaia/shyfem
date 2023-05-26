@@ -37,7 +37,6 @@
 ! 30.07.2015	ggu	changed VERS_7_1_83
 ! 03.04.2018	ggu	changed VERS_7_5_43
 ! 16.02.2019	ggu	changed VERS_7_5_60
-! 09.05.2023    lrp     introduce top layer index variable
 
 ! **************************************************
 ! ------------- Fluid Mud Module -------------------
@@ -717,7 +716,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 	include 'pkonst.h'
 
 
-        integer k,l,nlev,flev
+        integer k,l,nlev
         real*8 aux,dh,du,dv,m2,dbuoy,tau_test,lambda_e,visk_new
         real*8 rho1, rho2, visk_bar,mu8,mu0,beta,c,tau0,visklim
         real h(nlvdim)
@@ -733,9 +732,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
         visklim = 1.
 
         if( nldim .ne. nlvdim ) stop 'error stop stress_mud: dimension'
-          call dep3dnod(k,+1,flev,nlev,h)
+          call dep3dnod(k,+1,nlev,h)
           vts(0,k) = 0.
-          do l=flev,nlev
+          do l=1,nlev
             rhobar = rhov(l,k)/1000.
             g_dot = sqrt(shearf2(l,k))
             rhop = min(0.2,max(0.d0,rhobar))
@@ -804,7 +803,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 
         real tstress(nlvdim)
 
-        integer k,l,nlev,flev
+        integer k,l,nlev
         real aux,dh,du,dv,m2,dbuoy,tau_test,lambda_e
         real rho1, rho2, visk_bar,mu8,mu0,beta,c,tau0
         real h(nlvdim)
@@ -821,9 +820,9 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 
         if( nldim .ne. nlvdim ) stop 'error stop stress_mud: dimension'
 
-          call dep3dnod(k,+1,flev,nlev,h)
+          call dep3dnod(k,+1,nlev,h)
 
-          do l=flev,nlev
+          do l=1,nlev
             rhop = max(0.d0,dble(rhov(l,k)))/1000.
             call set_yieldstress(rhop,tau0)
             if (tau0 .gt. 0. .and. rhop .gt. 0.) then
@@ -917,7 +916,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 	include 'pkonst.h'
 
 
-        integer k,nlev,flev
+        integer k,nlev
 
         real*8 aux,dh,du,dv,m2,dbuoy,dh1,dh2,rho3
         real*8 rho1, rho2, visk_bar,tstress,ufric
@@ -932,7 +931,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 	integer i
         real h(nlvdim)
 
-        call dep3dnod(k,+1,flev,nlev,h)
+        call dep3dnod(k,+1,nlev,h)
 
         lmax = ilhkv(k)
         rho1 = rhov(lmax  ,k)+1000.
@@ -1020,12 +1019,12 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
 
 	integer lmax
 
-        integer k,l,nlev,flev
+        integer k,l,nlev
         real*8 ufric,depth
         real visk1,visk2
         real h(nlvdim)
 
-        call dep3dnod(k,+1,flev,nlev,h)
+        call dep3dnod(k,+1,nlev,h)
 
         lmax = ilhkv(k)
 
@@ -1817,7 +1816,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
  
         real h(nlvdim) , r
         real hh(nkndim),dep(nkndim)
-        integer ie,ip,il,iwrite,icycle,flev
+        integer ie,ip,il,iwrite,icycle
         real,save :: time
         save iwrite
         data time/0./
@@ -1827,7 +1826,7 @@ c     +	k.eq.365.or.k.eq.360.or.k.eq.353)then!DEB
           write(5001,*) 0
           write(5001,*) nkn
           do ip = 1, nkn
-            call dep3dnod(ip,+1,flev,nlvdi,h)
+            call dep3dnod(ip,+1,nlvdi,h)
             dep(ip)= hkv(ip) 
             hh(ip) = h(nlvdi)
             write(5001,*) ip-1,xgv(ip),ygv(ip),dep(ip)
