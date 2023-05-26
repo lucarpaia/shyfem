@@ -2186,7 +2186,7 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-          lmin = jwlhkv(k)	
+          lmin = jlhkv(k)	
 	  amin = +1.e+30
 	  amax = -1.e+30
 	  do l=lmin,lmax
@@ -2205,7 +2205,7 @@ c---------------------------------------------------------------
 
 	do k=1,nkn
 	  lmax = ilhkv(k)
-          lmin = jwlhkv(k)	  
+          lmin = jlhkv(k)	  
 	  do l=lmin,lmax
 	    qflux = mfluxv(l,k)
 	    if( qflux .gt. 0. ) then
@@ -2253,7 +2253,7 @@ c---------------------------------------------------------------
 	 !if( .not. is_external_boundary(k) ) then	!might be relaxed
 	 if( .not. is_zeta_bound(k) ) then	!might be relaxed
 	  lmax = ilhkv(k)
-          lmin = jwlhkv(k)		 
+          lmin = jlhkv(k)		 
 	  do l=lmin,lmax
 	    c = cnv(l,k)
 	    !rm1 = rmin(l,k)

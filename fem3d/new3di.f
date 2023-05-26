@@ -1621,7 +1621,7 @@ c arguments
 	real dzeta(nkn)
 c local
 	logical debug
-	integer k,ie,ii,kk,l,lmax,lmin,lmiss,llmiss
+	integer k,ie,ii,kk,l,ll,lmax,lmin,lmiss,llmiss
 	integer ilevel,jlevel,jlevelk,jlevelmin
         integer ibc,ibtyp
 	real aj,wbot,wdiv,ff,atop,abot,wfold
@@ -1637,6 +1637,7 @@ c statement functions
 
 	logical is_zeta_bound
 	real volnode
+        logical :: layer_exist
 
 	!logical isein
         !isein(ie) = iwegv(ie).eq.0
@@ -1755,6 +1756,13 @@ c =>  w(l-1) = flux(l-1) / a_i(l-1)  =>  w(l-1) = flux(l-1) / a(l)
 	    if( atop .gt. 0. ) then
 	      wlnv(l-1,k) = wlnv(l-1,k) / atop
 	      if( debug ) write(6,*) k,l,atop,wlnv(l-1,k)
+	    else if ( atop .eq. 0 .and. (.not.layer_exist(l,k)) ) then
+              do ll=l+1,lmax
+                if (layer_exist(ll,k)) then
+                  exit
+                end if
+	      end do	
+	      wlnv(l-1,k) = wlnv(l-1,k)/va(ll,k)
 	    end if
 	  end do
 	end do

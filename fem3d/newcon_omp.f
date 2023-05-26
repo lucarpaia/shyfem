@@ -395,6 +395,7 @@ c*****************************************************************
       double precision,dimension(0:nlvddi+1,3) :: finu
       double precision,dimension(nlvddi,3) :: clc,clm,clp,cle
       double precision,dimension(nlvddi) :: wein,weio
+      logical :: layer_exist
 	
 	if(nlv.ne.nlev) stop 'error stop conz3d_element: nlv/=nlev'
 
@@ -474,7 +475,7 @@ c*****************************************************************
 	    cl(l,ii) = cn1(l,k)
 	    cob(l,ii) = cobs(l,k)	!observations
 	    rtau(l,ii) = rtauv(l,k)	!observations
-            presentl(l,ii) = 1.	  
+            if (layer_exist(l,k)) presentl(l,ii) = 1.
 	    wl(l,ii) = wlnv(l,k) - wsink * wsinkv(l,k)
             !non-conformal edge	      
             if (l.eq.jlevel .and. jlevel.gt.jlevelk) then
@@ -798,13 +799,18 @@ c     +					  - rk3*hmed*wdiff(ii)
 !         but it is not and I have to add it manually to preserve 
 !         tracer constancy	  
 	  if (l.eq.jlevelk .and. jlhkv(k).lt.jlevelk) then
-            w = wl(l-1,ii)
+	    do ll=jlevelk-1,jlhkv(k),-1
+	      if (layer_exist(ll,k)) then 
+		exit
+	      end if	
+	    end do
+            w = wl(ll,ii)
             clp_wetdry = - aa*w
-            fw_wetdry = aat * vflux(l-1,ii)		  
+            fw_wetdry = aat * vflux(ll,ii)
 	    cexpl = aj4 * dt * fw_wetdry
             ahigh = aj4 * dt * clp_wetdry
-            cn(l-1,k)    = cn(l-1,k)    + cexpl
-            chigh(l-1,k) = chigh(l-1,k) + ahigh
+            cn(ll,k)    = cn(ll,k)    + cexpl
+            chigh(ll,k) = chigh(ll,k) + ahigh
 	  end if	  
 
           end if                        !end of sanity check
@@ -876,13 +882,15 @@ c     +					  - rk3*hmed*wdiff(ii)
 
 	double precision, parameter :: d_tiny = tiny(1.d+0)
 	double precision, parameter :: r_tiny = tiny(1.)
-      
+
+	logical :: layer_exist 
+
 ! ----------------------------------------------------------------
 !  handle boundary (flux) conditions
 ! ----------------------------------------------------------------
 
       	  ilevel = ilhkv(k)
-          jlevel = jwlhkv(k)
+          jlevel = jlhkv(k)
 
 	  do l=jlevel,ilevel
 
@@ -912,16 +920,15 @@ c     +					  - rk3*hmed*wdiff(ii)
             else					!erosion
               cn(l,k) = cn(l,k) + dt*loading
             end if
- 
+	    if (.not.layer_exist(l,k)) then
+	    call modify_ccoeff(l,k,nlvddi,aa,ad,cn(:,k),cdiag,clow,chigh)
+	    !  cn(l,k)=cn1(l,k) 			!lrp: quite bad
+ 	    end if	
 	  end do
 
 ! ----------------------------------------------------------------
 !  compute concentration for each node (solve system)
 ! ----------------------------------------------------------------
-
-        do l=jlevel-1,jlhkv(k),-1
-          cn(l,k)=cn1(l,k)
-	end do
 
 	if((aa .eq. 0. .and. ad .eq. 0.).or.(nlv .eq. 1)) then
 
