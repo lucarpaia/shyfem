@@ -212,8 +212,8 @@ c computes depth of node k for all layers
 
 	integer k	!number of node
 	integer mode	!-1: old zeta   0: no zeta   1: new zeta
-	integer nlev	!total number of levels
-	integer flev    !top layer index 
+	integer nlev	!index of bottom layer
+	integer flev    !index of top layer
 	real h(nlev)	!depth of layers
 
 	integer ndim
@@ -222,7 +222,7 @@ c computes depth of node k for all layers
 	logical layer_exist
 
 	ndim = nlev
-        flev = jlhkv(k)	
+	flev = jlhkv(k)
 	nlev = ilhkv(k)
 	if( nlev > ndim ) goto 99
 
@@ -246,7 +246,7 @@ c computes depth of node k for all layers
 
 	return
    99	continue
-	write(6,*) 'k,ndim,nlev: ',k,ndim,nlev
+	write(6,*) 'k,ndim,flev,nlev: ',k,ndim,flev,nlev
 	stop 'error stop dep3dnod: nlev>ndim'
 	end
 	
@@ -914,7 +914,7 @@ c checks differences between old and new depth values (debug)
 	write(6,*) 'check_diff_depth: ',idiff
 
 	end
-
+	  
 c***********************************************************
 
 	subroutine setdepth(levdim,hdkn,hden,zenv,area)
@@ -930,10 +930,10 @@ c sets up depth array for nodes
 	implicit none
 
 	integer levdim
-	real hdkn(levdim,nkn)	  !depth at node, new time level
-	real hden(levdim,nel)	  !depth at element, new time level
-	real zenv(3,nel)    	  !water level at new time level
-        real area(levdim,nkn)
+	real hdkn(levdim,nkn)	!depth at node, new time level
+	real hden(levdim,nel)	!depth at element, new time level
+	real zenv(3,nel)    	!water level at new time level
+	real area(levdim,nkn)
 
         logical bdebug
         logical bsigma
@@ -1002,8 +1002,8 @@ c	  -------------------------------------------------------
 	    z = zenv(ii,ie)
 	    zmed = zmed + z
 	    hsig = min(htot,hsigma) + z		!total depth sigma layers
-	    hzad = hadapt(ii) + z		!total depth z-adaptive layers
-            if ( ladapt(ii).eq.lmax ) hzad = htot + z	!bottom layer	
+	    hzad = hadapt(ii) + z		!total depth z-surface-adaptive layers
+            if ( ladapt(ii).eq.lmax ) hzad = htot + z	!z-surface-adaptive bottom layer	
 
 	    do l=1,nsigma
 	      hdkn(l,k) = - hsig * hldv(l)	!these have already depth
@@ -1083,25 +1083,25 @@ c	  -------------------------------------------------------
 	      if( levmin .eq. lmin ) then
 	        hden(lmin,ie) = hden(lmin,ie) + hlv(lmin-1) + zmed
 	      end if
-  	      hlast = htot - hlv(lmax-1)
+	      hlast = htot - hlv(lmax-1)
 	      if( hlast .lt. 0. ) goto 77
 	      hden(lmax,ie) = hlast
 	    end if
 	  end if
 
-          do l=lmin,lmax
-            h = hden(l,ie)
-            if( h <= hmin ) then
-              write(6,*) 'error computing layer thickness'
-              write(6,*) 'no layer depth in element: ',ie,l,lmax
-              write(6,*) 'depth: ',h,htot,zmed
-              write(6,*) 'additional information available in fort.666'
-              call check_set_unit(666)
-              call check_elem(ie)
-              call check_nodes_in_elem(ie)
-              stop 'error stop setdepth: no layer in element'
-            end if
-          end do
+	  do l=lmin,lmax
+	    h = hden(l,ie)
+	    if( h <= hmin ) then
+	      write(6,*) 'error computing layer thickness'
+	      write(6,*) 'no layer depth in element: ',ie,l,lmax
+	      write(6,*) 'depth: ',h,htot,zmed
+	      write(6,*) 'additional information available in fort.666'
+	      call check_set_unit(666)
+	      call check_elem(ie)
+	      call check_nodes_in_elem(ie)
+	      stop 'error stop setdepth: no layer in element'
+	    end if
+	  end do
 
 	end do
 
@@ -1117,7 +1117,7 @@ c----------------------------------------------------------------
 	do k=1,nkn_inner
 	  lmax = ilhkv(k)
 	  lmin = jlhkv(k)
-          levmin = nsigma + lmin
+	  levmin = nsigma + lmin
 	  do l=levmin,lmax
 	    areafv = area(l,k)
 	    if( areafv .gt. 0. ) then
@@ -1178,14 +1178,14 @@ c computes content of water mass in total domain
 
 	use levels
 	use basin, only : nkn,nel,ngr,mbw
-	use shympi
+	 use shympi
 
         implicit none
 
 	double precision masscont
 	integer mode
 
-	integer k,l,nlev
+	integer k,l,nlev,flev
 	real mass
 	double precision total
         real volnode
@@ -1196,7 +1196,8 @@ c computes content of water mass in total domain
 
 	do k=1,nkn
 	  nlev = ilhkv(k)
-	  do l=1,nlev
+          flev = jlhkv(k)
+	  do l=flev,nlev
 	    total = total + volnode(l,k,mode)
 	  end do
 	end do
@@ -1224,7 +1225,7 @@ c computes content of scalar in total domain
 	real scal(nlvdi,nkn)
 
 	logical, parameter :: bdebug = .false.
-	integer k,l,nlev
+	integer k,l,nlev,flev
 	real mass
 	double precision total
         real volnode
@@ -1235,7 +1236,8 @@ c computes content of scalar in total domain
 
 	do k=1,nkn
 	  nlev = ilhkv(k)
-	  do l=1,nlev
+	  flev = jlhkv(k)
+	  do l=flev,nlev
 	    total = total + volnode(l,k,mode) * scal(l,k)
 	    if( bdebug .and. scal(l,k) .gt. 0. ) then
 		write(6,*) 'scalcont: ',l,k,scal(l,k)
@@ -1264,14 +1266,15 @@ c computes content of scalar at node k
         integer mode,k
         real scal(nlvdi,nkn)
  
-        integer l,nlev
+        integer l,nlev,flev
         double precision total
         real volnode
  
         total = 0.
  
           nlev = ilhkv(k)
-          do l=1,nlev
+	  flev = jlhkv(k)
+          do l=flev,nlev
             total = total + volnode(l,k,mode) * scal(l,k)
           end do
  
@@ -1295,14 +1298,15 @@ c computes content of scalar at node k (with given depth)
         real scal(nlvdi,nkn)
         real depth
  
-        integer l,nlev
+        integer l,nlev,flev
         double precision total
         real areanode
  
         total = 0.
  
           nlev = ilhkv(k)
-          do l=1,nlev
+	  flev = jlhkv(k)
+          do l=flev,nlev
             total = total + depth * areanode(l,k,+1) * scal(l,k)
           end do
  

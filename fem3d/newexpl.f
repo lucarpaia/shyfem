@@ -495,7 +495,7 @@ c---------------------------------------------------------------
 	do ie=1,nel
           wtop = 0.0
 	  lmax = ilhv(ie)
-          lmin = jlhv(ie)
+	  lmin = jlhv(ie)
 
           rdist = rdistv(ie)              !use terms (distance from OB)
           rcomp = rcomputev(ie)           !use terms (custom elements)
@@ -514,7 +514,6 @@ c	    ---------------------------------------------------------------
   	    vt = vtlov(l,ie)
             uc = ut / h
             vc = vt / h
-
 	    xadv = 0.
 	    yadv = 0.
 	    wbot = 0.
@@ -547,7 +546,7 @@ c	    ---------------------------------------------------------------
             end do
 	    
 	    zxadv = 0.
-	    zyadv = 0.
+	    zyadv = 0. 
 	   
 c	    ---------------------------------------------------------------
 c	    vertical advection
@@ -1026,7 +1025,7 @@ c---------- DEB SIG
 	integer llup(3),lldown(3)
 c---------- DEB SIG
 
-	logical bsigma,badapt,bsigadjust
+	logical bsigma,badapt,bmoveinterface,bsigadjust
         integer k,l,ie,ii,lmax,lmin,nsigma
 	real hsigma,hdep,htot
         double precision hlayer,hint,hhk,hh,hhup,htint
@@ -1053,10 +1052,8 @@ c---------- DEB SIG
 	allocate(hkko(0:nlvdi,nkn))
 	allocate(hkkom(0:nlvdi,nkn))
 
+						!lrp: removed if for badapt case: this is not optimized
 c	if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
-						!lrp: we have removed if 
-						!     for badapt case.
-						!     this is not optimized
 	  do k=1,nkn
 	    lmax=ilhkv(k)
 	    hkko(0,k)=-zov(k)	!depth of interface on node
@@ -1069,7 +1066,7 @@ c	if( bsigma .and. bsigadjust ) then	!-------------- DEB SIG
 	      hkkom(l,k)=(hkko(l,k)+hkko(l-1,k))/2.
             end do
 	  end do
-c	end if					!lrp
+c	end if
 	 
         do ie=1,nel
 
@@ -1088,18 +1085,19 @@ c	end if					!lrp
 	  hhup=0.
           do l=lmin,lmax		!loop over layers to set up interface l-1
 	    bsigma = l .le. nsigma
-	    badapt = l .le. (nadapt(4)+lmin-1) 
+	    badapt = l .le. (nadapt(4)+lmin-1)
+	    bmoveinterface = bsigma .or. badapt
 
 	    htint = 0.				!depth of layer top interface
 	    if( l .gt. 1 ) htint = hlv(l-1)
 
             hlayer = hdeov(l,ie)		!layer thickness
-	    if( .not. (bsigma .and. badapt) ) hlayer = hldv(l)
+	    if( (.not. bsigma) .and. (.not. badapt)) hlayer = hldv(l)
 
             hh = 0.5 * hlayer
 	    hint = hh + hhup			!interface thickness
                 
-	    if( (bsigma .or. badapt) .and. bsigadjust ) then	!-------------- DEB SIG
+	    if( bmoveinterface .and. bsigadjust ) then	!-------------- DEB SIG
 	      hele = 0.
 	      helei = 0.
 	      do ii=1,3
@@ -1173,7 +1171,7 @@ c	end if					!lrp
 	        crl = crl + c * rhop
 	      end if
 
-	      if( (bsigma .or. badapt) .and. bsigadjust ) then 
+	      if( bmoveinterface .and. bsigadjust ) then 
 		lu = llup(ii)
 		ld = lldown(ii)
 		if( ld .eq. 1 ) then		!above surface
@@ -1198,7 +1196,7 @@ c	end if					!lrp
               br = br + b * rhop
               cr = cr + c * rhop
 
-              if (bsigma .or. badapt) then
+              if (bmoveinterface) then
 	       if( bsigadjust ) then
 		psigma = 0.
 	       else
@@ -1230,7 +1228,7 @@ c               hdep = hm3v(ii,ie) + zov(k)
               end if
             end do
 
-	    if( (bsigma .or. badapt) .and. bsigadjust ) then 
+	    if( bmoveinterface .and. bsigadjust ) then 
               if(nb.eq.2)then
 	        brint = brup
 	        crint = crup

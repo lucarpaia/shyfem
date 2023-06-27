@@ -386,7 +386,7 @@ c---------------------------------------------------------
 
 	do k=1,nkn
 
-          lmax = ilhkv(k)	
+	  lmax = ilhkv(k)
 	  lmin = jwlhkv(k)
 	  if (is_dry_node(k)) then	!do not compute if node is dry
 	    dtw(k)   = 0.
@@ -540,7 +540,7 @@ c         ---------------------------------------------------------
 
 	  if( k == kdebug ) write(444,*) icall,bice,bicecover,buseice
 	  if( bice ) then
-            hm = depnode(1,k,mode)
+            hm = depnode(lmin,k,mode)
             tm = temp(lmin,k)
             sm = saltv(lmin,k)
 	    call get_pe_values(k,r,e,eeff)
