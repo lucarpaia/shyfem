@@ -57,10 +57,128 @@ c******************************************************************
 	integer, save, allocatable :: iskremap(:,:) !remap yes/no
 	integer, save, allocatable :: iseremap(:,:) !remap yes/no
 	integer, save, allocatable :: iskbathywall(:,:) !is layer on a resolved bathymetry wall yes/no
+	real   , save :: nzadapt_com		      !minimum number of adaptive layers
+	real, save :: rzmov_com		      !parameter for moving surface layers
+	real, save :: rztop_com		      !parameter for removing surface layers
 
 !==================================================================
         end module zadapt
 !==================================================================
+
+c******************************************************************
+
+        subroutine get_rzmov_info(rzmov)
+
+        use zadapt
+
+        implicit none
+
+        real rzmov
+
+        rzmov = rzmov_com
+
+        end
+
+c******************************************************************
+
+        subroutine set_rzmov_info(rzmov)
+
+        use zadapt
+
+        implicit none
+
+        real rzmov
+
+        rzmov_com = rzmov
+
+        end
+
+c******************************************************************
+
+        subroutine get_rztop_info(rztop)
+
+        use zadapt
+
+        implicit none
+
+        real rztop
+
+        rztop = rztop_com
+
+        end
+
+c******************************************************************
+
+        subroutine set_rztop_info(rztop)
+
+        use zadapt
+
+        implicit none
+
+        real rztop
+
+        rztop_com = rztop
+
+        end
+
+c******************************************************************
+
+	subroutine compute_rzpar_info(nlv,nzadapt,hlv,rzmov,rztop)
+
+	use zadapt
+
+	implicit none
+
+        integer nlv             !total number of layers
+	integer nzadapt		!number of surface moving layers
+        real hlv(nlv)           !layer structure
+	real rzmov 		!parameter for moving surface layers (return)
+	real rztop		!parameter for removing surface layers (return)
+
+	real maxz
+	
+	maxz = 0.0				!estimate of max water level
+
+	if (nzadapt .le. 0) then		!z-layers
+	  rzmov = 0.125
+	  rztop = 0.200
+	else if (nzadapt .ge. nlv) then		!z-star
+	  rzmov =  10000.
+	  rztop = -10000.
+	else 					!z + z-star
+          rzmov = (maxz+hlv(nzadapt-1)) / (hlv(nzadapt)-hlv(nzadapt-1))
+	  rztop = -10000.
+	end if
+
+	end 
+
+c******************************************************************
+
+        subroutine get_nzadapt_info(nzadapt)
+
+        use zadapt
+
+        implicit none
+
+        integer nzadapt
+
+        nzadapt = nzadapt_com
+
+        end
+
+c******************************************************************
+
+        subroutine set_nzadapt_info(nzadapt)
+
+        use zadapt
+
+        implicit none
+
+        integer nzadapt
+
+        nzadapt_com = nzadapt
+
+        end
 
 c******************************************************************
 
@@ -133,8 +251,7 @@ c coefficients of adaptive layers
 	hadapt = 0	   !no adaptation -> all to zero	
 	hdl = 0.           !no adaptation -> all to zero
 
-	r = getpar('rzmov')
-
+	call get_rzmov_info(r)
         call get_sigma_info(nlev,nsigma,hsigma)
         bsigma = nsigma .gt. 0
 
@@ -429,7 +546,7 @@ c local
         real getpar,r
 
 	lmax=0
-        r = getpar('rztop')
+	call get_rztop_info(r)
 
 	call get_sigma_info(nlev,nsigma,hsigma)
 	bsigma = nsigma .gt. 0
@@ -527,8 +644,7 @@ c
         integer nadapt(4)
         real hadapt(4)	
 
-	r = getpar('rztop')
-
+	call get_rztop_info(r)
         call get_sigma_info(nlev,nsigma,hsigma)
         bsigma = nsigma .gt. 0
 
@@ -1561,11 +1677,14 @@ c******************************************************************
 
         subroutine init_zadaptation
 
-        use levels, only : nlvdi
+        use levels, only : nlvdi,hlv
         use basin, only : nkn,nel		
 	use zadapt
 
 	implicit none		
+
+	integer lmin,nzadapt
+	real getpar,rzmov,rztop,testz
 
         allocate(nadapt_com(4,nel))
         allocate(hadapt_com(4,nel))	
@@ -1578,6 +1697,34 @@ c******************************************************************
 	iseremap = 1
 	iskremap = 1
 	call check_bathywall
+
+	nzadapt = nint(getpar('nzadapt'))
+	call set_nzadapt_info(nzadapt)
+        call compute_rzpar_info(nlvdi,nzadapt,hlv,rzmov,rztop)
+        call set_rzmov_info(rzmov)
+	call set_rztop_info(rztop)
+
+        write(6,'(a)') 'Initializing z-layers parameters ...'
+        write(6,*) ' nzadapt,rzmov,rztop: ', nzadapt,rzmov,rztop
+
+c	if (nzadapt > 0) then
+c	  lmin = 1
+c          testz = -0.0
+c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          write(6,*) ' z nzadapt: ', testz,nzadapt
+c
+c	  testz = -0.5
+c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          write(6,*) ' z nzadapt: ', testz,nzadapt
+c
+c          testz = -1.0
+c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          write(6,*) ' z nzadapt: ', testz,nzadapt
+c
+c          testz = -1.5
+c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          write(6,*) ' z nzadapt: ', testz,nzadapt
+c	end if
 
 	end
 

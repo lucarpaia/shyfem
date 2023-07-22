@@ -530,6 +530,8 @@
 	include 'simul.h'
 
 	integer date,time
+	real simpar(3)
+	real hzmin,hzoff,nzadapt
 	character*80 title
 	character*80 femver
 	double precision dgetpar
@@ -538,12 +540,18 @@
 
         date = nint(dgetpar('date'))
         time = nint(dgetpar('time'))
+	hzmin = dgetpar('hzmin')
+	hzoff = dgetpar('hzoff')
+	nzadapt = dgetpar('nzadapt')
         title = descrp
         call get_shyfem_version_and_commit(femver)
+
+	simpar = (/hzmin,hzoff,nzadapt/)
 
         call shy_set_date(id,date,time)
         call shy_set_title(id,title)
         call shy_set_femver(id,femver)
+        call shy_set_simpar(id,simpar)
 
 	end
 

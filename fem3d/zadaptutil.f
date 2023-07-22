@@ -40,6 +40,100 @@ c******************************************************************
 c******************************************************************
 c******************************************************************
 
+!==================================================================
+        module zadaptutil
+!==================================================================
+
+        implicit none
+
+        real, save :: rzmov_com                    !parameter for moving surface layers
+	real, save :: rztop_com		      !parameter for removing surface layers
+
+!==================================================================
+        end module zadaptutil
+!==================================================================
+
+c******************************************************************
+
+        subroutine get_rzpar_info(rzmov,rztop)
+
+        use zadaptutil
+
+        implicit none
+
+        real rzmov,rztop
+
+        rzmov = rzmov_com
+	rztop = rztop_com
+
+        end
+
+c******************************************************************
+
+        subroutine set_rzpar_info(rzmov,rztop)
+
+        use zadaptutil
+
+        implicit none
+
+        real rzmov,rztop
+
+        rzmov_com = rzmov
+	rztop_com = rztop
+
+        end
+
+c******************************************************************
+
+        subroutine compute_rzpar_info2(nlv,nzadapt,hlv,rzmov,rztop)
+
+        use zadaptutil
+
+        implicit none
+
+        integer nlv             !total number of layers
+        integer nzadapt         !number of surface moving layers
+        real hlv(nlv)           !layer structure
+        real rzmov              !parameter for moving surface layers (return)
+	real rztop		!parameter for removing surface layers (return)
+
+        real maxz
+
+        maxz = 0.0                              !estimate of max water level
+
+        if (nzadapt .le. 0) then                !z-layers
+          rzmov = 0.125
+	  rztop = 0.200
+        else if (nzadapt .ge. nlv) then         !z-star
+          rzmov =  10000.
+	  rztop = -10000.
+        else                                    !z + z-star
+          rzmov = (maxz+hlv(nzadapt-1)) / (hlv(nzadapt)-hlv(nzadapt-1))
+	  rztop = -10000.
+        end if
+
+        end
+
+c******************************************************************
+
+        subroutine init_rzmov_info(nlv,nzadapt,hlv)
+
+        implicit none
+
+        integer nlv
+        integer nzadapt
+        real hlv(nlv)
+
+        real rzmov,rztop
+
+
+        call compute_rzpar_info2(nlv,nzadapt,hlv,rzmov,rztop)
+        call set_rzpar_info(rzmov,rztop)
+
+        end
+
+c******************************************************************
+
 	subroutine compute_zadapt_info(z,hlv,nsig,lmax,lmin,nzad,hzad)
 
 c returns relevant info for z-adaptive layers
@@ -57,8 +151,7 @@ c returns relevant info for z-adaptive layers
 	integer l,levmax
 	real rgridtop,rgridmov
 
-	rgridmov = 0.125 !getpar('rzmov')
-	rgridtop = 0.200 !getpar('rztop') !not working
+	call get_rzpar_info(rgridmov,rgridtop)
 
         lmin = 1
         levmax = 0       !no adapation -> all to zero	
