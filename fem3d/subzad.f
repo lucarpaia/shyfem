@@ -1704,27 +1704,35 @@ c******************************************************************
         call set_rzmov_info(rzmov)
 	call set_rztop_info(rztop)
 
-        write(6,'(a)') 'Initializing z-layers parameters ...'
+        write(6,'(a)') ' Initializing z-layers parameters ...'
         write(6,*) ' nzadapt,rzmov,rztop: ', nzadapt,rzmov,rztop
 
-c	if (nzadapt > 0) then
-c	  lmin = 1
+        if (nzadapt .le. 1) then                !z-layers
+          write(6,*) ' z-layers'
+        else if (nzadapt .ge. nlvdi) then         !z-star
+          write(6,*) ' z-star layers'
+        else                                    !z + z-star
+          write(6,*) ' z-star + z-layers:'
+c          write(6,*) ' z (water level), (nzadapt) number of'
+c          write(6,*) ' surface layers moving with z-star:'
+c          lmin = 1
 c          testz = -0.0
-c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
 c          write(6,*) ' z nzadapt: ', testz,nzadapt
 c
-c	  testz = -0.5
-c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          testz = -0.5
+c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
 c          write(6,*) ' z nzadapt: ', testz,nzadapt
 c
 c          testz = -1.0
-c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
 c          write(6,*) ' z nzadapt: ', testz,nzadapt
 c
 c          testz = -1.5
-c          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
 c          write(6,*) ' z nzadapt: ', testz,nzadapt
-c	end if
+        end if
+
 
 	end
 
