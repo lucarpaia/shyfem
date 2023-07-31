@@ -1166,7 +1166,7 @@ c	end if
               b = ev(3+ii,ie)		!gradient in x
               c = ev(6+ii,ie)		!gradient in y
 
-	      if( l .eq. nsigma ) then	!last sigma layer
+	      if( l .eq. nsigma .or. l .eq. nadapt(4) ) then	!last mov layer
 	        brl = brl + b * rhop
 	        crl = crl + c * rhop
 	      end if
@@ -1258,7 +1258,7 @@ c               hdep = hm3v(ii,ie) + zov(k)
 
 	    brup=br
 	    crup=cr
-	    if( l .eq. nsigma ) then
+	    if( l .eq. nsigma .or. l .eq. nadapt(4) ) then
 	      brup=brl
 	      crup=crl
 	    end if
