@@ -58,99 +58,10 @@ c******************************************************************
 	integer, save, allocatable :: iseremap(:,:) !remap yes/no
 	integer, save, allocatable :: iskbathywall(:,:) !is layer on a resolved bathymetry wall yes/no
 	real   , save :: nzadapt_com		      !minimum number of adaptive layers
-	real, save :: rzmov_com		      !parameter for moving surface layers
-	real, save :: rztop_com		      !parameter for removing surface layers
 
 !==================================================================
         end module zadapt
 !==================================================================
-
-c******************************************************************
-
-        subroutine get_rzmov_info(rzmov)
-
-        use zadapt
-
-        implicit none
-
-        real rzmov
-
-        rzmov = rzmov_com
-
-        end
-
-c******************************************************************
-
-        subroutine set_rzmov_info(rzmov)
-
-        use zadapt
-
-        implicit none
-
-        real rzmov
-
-        rzmov_com = rzmov
-
-        end
-
-c******************************************************************
-
-        subroutine get_rztop_info(rztop)
-
-        use zadapt
-
-        implicit none
-
-        real rztop
-
-        rztop = rztop_com
-
-        end
-
-c******************************************************************
-
-        subroutine set_rztop_info(rztop)
-
-        use zadapt
-
-        implicit none
-
-        real rztop
-
-        rztop_com = rztop
-
-        end
-
-c******************************************************************
-
-	subroutine compute_rzpar_info(nlv,nzadapt,hlv,rzmov,rztop)
-
-	use zadapt
-
-	implicit none
-
-        integer nlv             !total number of layers
-	integer nzadapt		!number of surface moving layers
-        real hlv(nlv)           !layer structure
-	real rzmov 		!parameter for moving surface layers (return)
-	real rztop		!parameter for removing surface layers (return)
-
-	real maxz
-	
-	maxz = 0.0				!estimate of max water level
-
-	if (nzadapt .le. 1) then		!z-layers
-	  rzmov = 0.125
-	  rztop = 0.200
-	else if (nzadapt .ge. nlv) then		!z-star
-	  rzmov =  10000.
-	  rztop = -10000.
-	else 					!z + z-star
-          rzmov = (maxz+hlv(nzadapt-1)) / (hlv(nzadapt)-hlv(nzadapt-1))
-	  rztop = -10000.
-	end if
-
-	end 
 
 c******************************************************************
 
@@ -251,7 +162,6 @@ c coefficients of adaptive layers
 	hadapt = 0	   !no adaptation -> all to zero	
 	hdl = 0.           !no adaptation -> all to zero
 
-	call get_rzmov_info(r)
         call get_sigma_info(nlev,nsigma,hsigma)
         bsigma = nsigma .gt. 0
 
@@ -264,24 +174,12 @@ c loop over nodes: adaptation is node-driven
 c---------------------------------------------------------
 
 	do ii=1,3
-	  levmax = 0       !no adapation -> all to zero
-	  do l=lmin(ii),lmax-1 !-1 to skip bottom layer
 
 c---------------------------------------------------------
 c lowest index of adaptive deforming layers
-c---------------------------------------------------------	  
-	  
-            if(z(ii).le.(-hlv(l)+r*(hlv(l)-hlv(l-1)))) then 
-              levmax = l+1
-
 c---------------------------------------------------------
-c no deformation
-c--------------------------------------------------------- 
 
-	    else  
-	      exit 
-	    end if  
-          end do
+          call compute_nadapt_info(z(ii),hlv,lmax,lmin(ii),levmax)
 
 c---------------------------------------------------------
 c compute nadapt, ladapt, hadapt 
@@ -1713,24 +1611,24 @@ c******************************************************************
           write(6,*) ' z-star layers'
         else                                    !z + z-star
           write(6,*) ' z-star + z-layers:'
-c          write(6,*) ' z (water level), (nzadapt) number of'
-c          write(6,*) ' surface layers moving with z-star:'
-c          lmin = 1
-c          testz = -0.0
-c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
-c          write(6,*) ' z nzadapt: ', testz,nzadapt
-c
-c          testz = -0.5
-c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
-c          write(6,*) ' z nzadapt: ', testz,nzadapt
-c
-c          testz = -1.0
-c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
-c          write(6,*) ' z nzadapt: ', testz,nzadapt
-c
-c          testz = -1.5
-c          call compute_nadapt_info(testz,hlv,nlv,lmin,nzadapt)
-c          write(6,*) ' z nzadapt: ', testz,nzadapt
+          write(6,*) ' z (water level), (nzadapt) number of'
+          write(6,*) ' surface layers moving with z-star:'
+          lmin = 1
+          testz = -0.0
+          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+          write(6,*) ' z nzadapt: ', testz,nzadapt
+
+          testz = -0.5
+          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+          write(6,*) ' z nzadapt: ', testz,nzadapt
+
+          testz = -1.0
+          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+          write(6,*) ' z nzadapt: ', testz,nzadapt
+
+          testz = -1.5
+          call compute_nadapt_info(testz,hlv,nlvdi,lmin,nzadapt)
+          write(6,*) ' z nzadapt: ', testz,nzadapt
         end if
 
 

@@ -55,37 +55,63 @@ c******************************************************************
 
 c******************************************************************
 
-        subroutine get_rzpar_info(rzmov,rztop)
+        subroutine get_rzmov_info(rzmov)
 
         use zadaptutil
 
         implicit none
 
-        real rzmov,rztop
+        real rzmov
 
         rzmov = rzmov_com
-	rztop = rztop_com
 
         end
 
 c******************************************************************
 
-        subroutine set_rzpar_info(rzmov,rztop)
+        subroutine set_rzmov_info(rzmov)
 
         use zadaptutil
 
         implicit none
 
-        real rzmov,rztop
+        real rzmov
 
         rzmov_com = rzmov
-	rztop_com = rztop
 
         end
 
 c******************************************************************
 
-        subroutine compute_rzpar_info2(nlv,nzadapt,hlv,rzmov,rztop)
+        subroutine get_rztop_info(rztop)
+
+        use zadaptutil
+
+        implicit none
+
+        real rztop
+
+        rztop = rztop_com
+
+        end
+
+c******************************************************************
+
+        subroutine set_rztop_info(rztop)
+
+        use zadaptutil
+
+        implicit none
+
+        real rztop
+
+        rztop_com = rztop
+
+        end
+
+c******************************************************************
+
+        subroutine compute_rzpar_info(nlv,nzadapt,hlv,rzmov,rztop)
 
         use zadaptutil
 
@@ -127,8 +153,41 @@ c******************************************************************
         real rzmov,rztop
 
 
-        call compute_rzpar_info2(nlv,nzadapt,hlv,rzmov,rztop)
-        call set_rzpar_info(rzmov,rztop)
+        call compute_rzpar_info(nlv,nzadapt,hlv,rzmov,rztop)
+        call set_rzmov_info(rzmov)
+        call set_rztop_info(rztop)
+
+        end
+
+c******************************************************************
+
+        subroutine compute_nadapt_info(z,hlv,lmax,lmin,nadapt)
+
+c returns lowest index of adaptive deforming layers
+
+        implicit none
+
+        real z                  !water level
+        real hlv(lmax)          !layer structure
+        integer lmax            !bottom layer  index
+        integer lmin            !surface layer  index
+        integer nadapt          !number of z-adaptive layers (return)
+
+        integer l
+        real rgridmov
+
+        call get_rzmov_info(rgridmov)
+
+        nadapt = 0              !no adapation -> all to zero
+        do l=lmin,lmax-1        !-1 to skip bottom layer
+
+          if(z.le.(-hlv(l)+rgridmov*(hlv(l)-hlv(l-1)))) then
+            nadapt = l+1
+          else
+            exit
+          end if
+
+        end do
 
         end
 
@@ -151,7 +210,8 @@ c returns relevant info for z-adaptive layers
 	integer l,levmax
 	real rgridtop,rgridmov
 
-	call get_rzpar_info(rgridmov,rgridtop)
+	call get_rzmov_info(rgridmov)
+        call get_rztop_info(rgridtop)
 
         lmin = 1
         levmax = 0       !no adapation -> all to zero	
@@ -171,13 +231,7 @@ c---------------------------------------------------------
 c lowest index of adaptive deforming layers
 c--------------------------------------------------------- 
 
-          do l=lmin,lmax-1 !-1 to skip bottom layer
-            if(z.le.(-hlv(l)+rgridmov*(hlv(l)-hlv(l-1)))) then
-              levmax = l+1
-            else
-              exit
-            end if
-          end do
+	  call compute_nadapt_info(z,hlv,lmax,lmin,levmax)
 
 	end if 
 
