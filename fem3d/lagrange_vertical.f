@@ -166,12 +166,15 @@ c computes layer thickness for element ie
 	real hl(lmax)		!layer thickness (return)
 	real htot,htotz		!total depth without and with zeta (return)
 
-	integer nlev,nsigma,nadapt,ii,lmax_act,lmin
-	real hsigma,hadapt
+	integer nlev,nsigma,ii,lmax_act,lmin
+	real hsigma
 	real z,h
+        integer nadapt(4)
+        real hadapt(4)
 
         !call compute_sigma_info(nlev,hlv,nsigma,hsigma)
 	call get_sigma_info(nlev,nsigma,hsigma)
+        call get_zadapt_info(ie,nadapt,hadapt) 
 	lmax_act = ilhv(ie)
 	if( lmax_act > lmax ) goto 99
 	if( lmax_act > nlev ) goto 99
@@ -184,11 +187,9 @@ c computes layer thickness for element ie
 	end do
 	z = z / 6.
 
-	lmin = 1	       !lrp: z-adapt coords not working
-	nadapt = 0	       !with lagrange module		
-	hadapt = 0.            !
-        call get_layer_thickness(lmax,lmin,nsigma,nadapt,
-     +                           hsigma,hadapt,z,h,hlv,hl)
+	lmin = 1	       !lrp: z-adapt coords not working with lagrange module
+        call get_layer_thickness(lmax,lmin,nsigma,nadapt(4),
+     +                           hsigma,hadapt(4),z,h,hlv,hl)
 	htot = h
 	htotz = h + z
 
@@ -660,7 +661,7 @@ c copies internal coordinates to new element - avoid falling on vertex
 	if( abs(xi(ia2)+xi(ia3)-1.) > eps ) goto 99
 
 	!---------------------------------------
-	! look for neigboring element
+	! look for neighboring element
 	!---------------------------------------
 
 	ieb = ieltv(ia1,ie)

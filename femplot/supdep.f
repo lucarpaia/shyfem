@@ -85,10 +85,10 @@ c uses level to decide what to do
 
 	logical bdebug
 	integer ie,ii
-	integer level,lmax
-	real zeta
-	integer nsigma,nlvaux
-	real hsigma
+	integer level,lmax,lmin
+	real zeta,zmin
+	integer nsigma,nadapt,nlvaux
+	real hsigma,hadapt
         real hl(nlv)
 
 	integer getlev
@@ -110,8 +110,13 @@ c-------------------------------------------------------------------
 
 	do ie=1,nel
 	  lmax = ilhv(ie)
+	  lmin = 1
 	  call compute_levels_on_element(ie,zenv,zeta)
-	  call get_layer_thickness(lmax,nsigma,hsigma,zeta,hev(ie),hlv,hl)
+	  zmin = minval(zenv(:,ie))   !min: z-adapt coords works with zmin
+	  call compute_zadapt_info(zmin,hlv,nsigma,lmax,lmin,
+     + 				   nadapt,hadapt)
+	  call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +				   hsigma,hadapt,zeta,hev(ie),hlv,hl)
 	  hetv(ie) = hlthick(level,lmax,hl)
 	end do
 
@@ -154,10 +159,10 @@ c arguments
 c local
 	logical bdebug
 	integer ie,ii
-	integer l,lmax
-	integer nlvaux,nsigma
-	real hsigma
-	real zeta
+	integer l,lmax,lmin
+	integer nlvaux,nsigma,nadapt
+	real hsigma,hadapt
+	real zeta,zmin
 
 c-------------------------------------------------------------------
 c initialization
@@ -174,9 +179,13 @@ c-------------------------------------------------------------------
 
 	do ie=1,nel
 	  lmax = ilhv(ie)
+	  lmin = 1
 	  call compute_levels_on_element(ie,zenv,zeta)
-	  call get_layer_thickness(lmax,nsigma,hsigma,zeta,hev(ie),hlv
-     +				,het3v(1,ie))
+          zmin = minval(zenv(:,ie))   !min: z-adapt coords works with zmin
+          call compute_zadapt_info(zmin,hlv,nsigma,lmax,lmin,
+     +                             nadapt,hadapt)
+	  call get_layer_thickness(lmax,lmin,nsigma,nadapt,
+     +			hsigma,hadapt,zeta,hev(ie),hlv,het3v(1,ie))
 !	  call get_layer_thickness_e(ie,lmax,bzeta,nsigma,hsigma
 !     +				,het3v(1,ie))
 	end do
