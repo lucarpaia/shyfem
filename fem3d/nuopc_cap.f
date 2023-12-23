@@ -8,19 +8,16 @@
 ! Licensed under the University of Illinois-NCSA License.
 !==============================================================================
 
-	!! \section{The ocean component}
+	!! \section{The ocean component: SHYFEM}
 	!!
 	!! We are cascading into the objects hierarchy. We miss the last step: we need
 	!! to specify the methods for the children object. Here we do this for the 
-	!! ocean model object.
-
+	!! ocean model object. The ocean component is coded into a Fortran module.
         module ocean_shyfem
 
-	!-----------------------------------------------------------------------------
-	! OCN Component.
-	!-----------------------------------------------------------------------------
-
+	!! We call the modules of the libraries. First the SHYFEM library:
 	use mod_shyfem
+	!! and of course ESMF and NUOPC:
 	use ESMF
         use NUOPC
 	use NUOPC_Model, 
@@ -36,14 +33,15 @@
 	contains
 	!-----------------------------------------------------------------------------
 
+        !! We have already seen how to create a component with the aid of the NUOPC
+        !! layer.
 	subroutine SetServices(model, rc)
 	  type(ESMF_GridComp)  :: model
 	  integer, intent(out) :: rc
         
 	  rc = ESMF_SUCCESS
 
- 	  !! We have already seen how to create a component with the aid of the NUOPC
-	  !! layer. We do not comment again the derive/specialize commands, being
+	  !! We do not comment again the derive/specialize commands, being
 	  !! exactly equal to what we have seen for the earth component.
 
 	  ! derive from NUOPC_Model
@@ -129,9 +127,8 @@
 	  rc = ESMF_SUCCESS
 
 	  !! Since we are in the initialization phase, we use this subroutine 
-	  !! to call also the ocean model initialization. Here the grid and data are read,
-	  !! the initial conditions are set and data structure are initialized  
-	  ! HERE THE MODEL IS INTIALIZED:
+	  !! to call also the SHYFEM initialization. Here the grid and data are read,
+	  !! the initial conditions are set and data structure are initialized:  
 	  call shyfem_initialize
 
 	  call ESMF_LogWrite("Initialized OCN", ESMF_LOGMSG_INFO, rc=rc)
@@ -312,8 +309,8 @@
 
 	!-----------------------------------------------------------------------------
 
-	!! The ocean model advances the shallow water multilayer equations for stratified 
-	!! flows of one time step:
+	!! The SHYFEM ocean model advances the shallow water multilayer equations for
+	!! stratified flows of one time step:
 	!! \[
 	!! U^{n+1}_o = U^{n+1}_o + \Delta t_{ao}\left( L_o(U^{n+1}_o)
 	!!           + F_{oa}(U^{n}_o,U^{n}_a) \right)
@@ -358,7 +355,8 @@
      +	    file=__FILE__))
      +	    return  ! bail out
 
-	  ! HERE THE MODEL ADVANCES: currTime -> currTime + timeStep
+	  !! This is the call to the SHYFEM subroutine that timesteps
+	  !! the ocean variables for one ocean atmosphere timestep.
 	  call shyfem_run(minusOne)
 
 	  ! Because of the way that the internal Clock was set in SetClock(),
