@@ -66,8 +66,10 @@ LIBGOTM    = gotm
 LIBNETCDFC = netcdf
 LIBNETCDFF = netcdff
 LIBERSEM   = bfm
+LIBNUOPC   = nuopc
 
 LIBFFEM    = $(DIRLIB)/lib$(LIBFEM).a
+LIBFNUOPC  = $(DIRLIB)/lib$(LIBNUOPC).a
 
 LIBGS = -L$(DIRLIB) -lfem
 LIBFS =
@@ -111,6 +113,28 @@ ifeq ($(FLUID_MUD),true)
   MUD_FILES = submud.o subgotm_mud.o
 else
   MUD_FILES = submud_dummy.o subgotm.o
+endif
+
+#------------------------------------------------------------
+# ESMF-NUOPC files
+#------------------------------------------------------------
+
+NUOPC          = false
+DIRBASE_ESMF   = /usr2/luca/Devs/esmf-8.6.0
+DIRLIB_ESMF    = $(DIRBASE_ESMF)/lib/libO/Linux.gfortran.64.mpiuni.default
+ESMF_MKFILE    = $(DIRLIB_ESMF)/esmf.mk
+NUOPCMOD       = ocean_shyfem
+NUOPC_OBJ      = nuopc_cap.o
+
+ifeq ($(NUOPC),true)
+ifneq ("$(wildcard $(ESMF_MKFILE))","")
+    include $(ESMF_MKFILE)
+else
+    $(error cannot find esmf mk file...)
+endif
+ifneq ($(ESMF_VERSION_MAJOR),8)
+    $(error your installed esmf version $(ESMF_VERSION_MAJOR) is not tested with shyfem ...)
+endif
 endif
 
 #------------------------------------------------------------
@@ -1008,8 +1032,7 @@ intp:	intp.o $(INTPOBJS)
 
 # extra treatment of GOTM routines because of compiler bug
 
-gotm3d.o: gotm3d.f gotmturb.i
-	$(F77) -c $(FFLAGS_NOOPT) gotm3d.f
+gotm3d.o: gotm3d.f gotmturb.i $(F77) -c $(FFLAGS_NOOPT) gotm3d.f
 
 # extra treatment of subfemintp.f because of vane compiler warnings
 
@@ -1058,7 +1081,7 @@ endif
 petsc_copy:
 	@cp -n $(PETSC_DIR)/include/*.mod $(MODDIR)
 	@cp -n $(PETSC_DIR)/include/*.h $(MODDIR)
-	
+
 #------------------------------------------------
 amgx_c_wrapper.o: $(AMGXWRAPWRAPDIR)/src/amgx_c_wrapper.cpp $(AMGXWRAPWRAPDIR)/src/amgx_c_wrapper.h
 	$(CXX) -c $(CXXFLAGS) $<  -o $@
@@ -1070,6 +1093,44 @@ libfem: $(LIBFFEM)
 
 $(LIBFFEM): $(SOBJS)
 	ar rvs $(LIBFFEM) $?
+
+#------------------------------------------------
+
+nuopc_info:
+	@echo "esmf version         : $(ESMF_VERSION_STRING)"
+	@echo "esmf compiler        : $(ESMF_F90COMPILER)"
+	@echo "esmf linker          : $(ESMF_F90LINKER)"
+	@echo "esmf compile options : $(ESMF_F90COMPILEOPTS)" 
+	@echo "esmf link options    : $(ESMF_F90LINKOPTS)"
+
+nuopc_copy:
+	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/esmf.mod $(FEMDIR)/lib/mod 
+	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc.mod $(FEMDIR)/lib/mod
+	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc_model.mod $(FEMDIR)/lib/mod
+
+nuopc_clean:
+	-rm -f *.mk
+
+.PRECIOUS: %.o
+
+nuopc_shyfem.mk:
+	@echo "creating nuopc makefile fragment"
+	@echo "# ESMF self-describing build dependency makefile fragment for SHYFEM model" > $@
+	@echo >> $@
+	@echo "ESMF_DEP_FRONT     = "$(NUOPCMOD)                  >> $@
+	@echo "ESMF_DEP_INCPATH   = `pwd`"                        >> $@
+	@echo "ESMF_DEP_CMPL_OBJS = `pwd`/"$(NUOPC_OBJ)           >> $@
+	@echo "ESMF_DEP_LINK_OBJS = `pwd`/"$(LIBFNUOPC)           >> $@
+	@echo "ESMF_DEP_SHRD_PATH = `pwd`/"$(DIRLIB)              >> $@
+	@echo "ESMF_DEP_SHRD_LIBS = "$(LIBGOTM) $(LIBFEM)         >> $@
+
+libnuopc: nuopc_copy $(LIBFNUOPC)
+
+$(LIBFNUOPC): nuopc_cap.o shyfem_subs.o $(NEWOBJS) $(HTOBJS)
+	@echo "creating static library with shyfem and nuopc cap layer" 
+	ar rvs $(LIBFNUOPC) $?
+
+nuopc: nuopc_info nuopc_clean nuopc_shyfem.mk libnuopc
 
 #------------------------------------------------
 
@@ -1152,7 +1213,7 @@ cleanzip:
 	-rm -f save.zip
 
 cleanlib:
-	-rm -f $(LIBFFEM)
+	-rm -f $(LIBFFEM) $(LIBFNUOPC)
 
 cleanmod:
 	-rm -f $(MODDIR)/*.mod
@@ -1321,7 +1382,6 @@ $(MODDIR)/mod_zeta_system.mod: $(simsys_solver)
 ../femlib/mod/mod_sediment.mod: sedi3d.o
 ../femlib/mod/mod_sediment_para.mod: sedi3d.o
 ../femlib/mod/mod_sedtrans05.mod: sedtrans05.o
-../femlib/mod/mod_shyfem.mod: shyfem.o
 ../femlib/mod/mod_shympi_debug.mod: check_shympi_debug.o
 ../femlib/mod/mod_shypre.mod: shypre.o
 ../femlib/mod/mod_sinking.mod: mod_sinking.o
@@ -1373,6 +1433,7 @@ $(MODDIR)/mod_zeta_system.mod: $(simsys_solver)
 ../femlib/mod/vector_matrix_utils.mod: aquabc_II_co2sys.o
 ../femlib/mod/volcomp.mod: subvola.o
 ../femlib/mod/zadapt.mod: zadaptutil.o
+../femlib/mod/mod_shyfem.mod: shyfem_subs.o
 amgx_c_wrapper_dummy.o: ../femlib/mod/petscdm.mod \
 		../femlib/mod/petscdmlabel.mod \
 		../femlib/mod/petscmat.mod \
@@ -2375,4 +2436,4 @@ weutro_shell.o: donata.h
 weutro_ulva.o: donata.h
 weutro_wdia.o: ../femlib/mod/eutro.mod weutro.h
 zadaptutil.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod
-
+nuopc_cap.o: ../femlib/mod/mod_shyfem.mod

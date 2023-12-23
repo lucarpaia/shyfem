@@ -193,9 +193,9 @@
 !
 !----------------------------------------------------------------
 
-	program shyfem
-	call shyfem_main
-	end program
+
+
+
 
 !================================================================
 	module mod_shyfem
@@ -256,7 +256,7 @@
 	double precision mpi_t_solve
 	double precision dtime,dtanf,dtend
         double precision atime_start,atime_end
-        double precision, parameter ::minus_one = -1.
+        double precision, parameter :: zero = 0.
         character*20 aline_start,aline_end
 	character*80 strfile
 	character*80 mpi_code,omp_code
@@ -269,7 +269,7 @@
 	use mod_shyfem
 	implicit none
 	call shyfem_initialize
-	call shyfem_run(minus_one)
+	call shyfem_run(zero)
 	call shyfem_finalize
 	end subroutine shyfem_main
 
