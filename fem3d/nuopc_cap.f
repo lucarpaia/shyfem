@@ -128,7 +128,7 @@
 
 	  !! Since we are in the initialization phase, we use this subroutine 
 	  !! to call also the SHYFEM initialization. Here the grid and data are read,
-	  !! the initial conditions are set and data structure are initialized:  
+	  !! the initial conditions are set and data structures are initialized:  
 	  call shyfem_initialize
 
 	  call ESMF_LogWrite("Initialized OCN", ESMF_LOGMSG_INFO, rc=rc)
@@ -356,7 +356,7 @@
      +	    return  ! bail out
 
 	  !! This is the call to the SHYFEM subroutine that timesteps
-	  !! the ocean variables for one ocean atmosphere timestep.
+	  !! the ocean variables for one ocean-atmosphere timestep.
 	  call shyfem_run(minusOne)
 
 	  ! Because of the way that the internal Clock was set in SetClock(),

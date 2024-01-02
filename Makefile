@@ -124,6 +124,10 @@ fem: checkv directories links test_executable check_server check_compiler
 	@$(FEMBIN)/recursivemake $@ $(FEMDIRS)
 	@femcheck/check_compilation.sh -quiet
 
+nuopc: fem
+	@$(FEMBIN)/recursivemake $@ $(FEMSRC)
+	@femcheck/check_compilation.sh -quiet
+
 para_get:
 	@cd fempara; ./para_get.sh $(PARADIR)
 

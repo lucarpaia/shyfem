@@ -336,6 +336,36 @@ FLUID_MUD = false
 #FLUID_MUD = true
 
 ##############################################
+# ESMF-NUOPC 
+##############################################
+#
+# The model can be coupled with other earth components,
+# e.g. atmospheric, river or land models.
+# This is realized thanks to the ESMF integrated system which
+# must be already compiled and installed on your machine. 
+# If NUOPC is true, the code can be compiled as a library with 
+# with entry points that are coded in a "cap layer", see ESMF-NUOPC
+# jargon. The cap layer contains subroutines to initialize, run
+# and finalize SHYFEM. It also calls the ESMF library. Finally
+# the cap layer is called by a third code, called NUOPC,
+# that lunches the model from "outside".
+#
+# Please specify if NUOPC is active and the base directory
+# where ESMF library has been installed. By default, 
+# ESMF library directory should be in: 
+# $(ESMFDIR)/lib/libO/Linux.gfortran.64.mpiuni.default
+#
+# The call:
+# >> make nuopc
+# generates the NUOPC-compliant SHYFEM library and produce 
+# a Makefile fragment call "fem3d/nuop_shyfem.mk" which exchanges
+# useful variables to compile NUOPC code.
+##############################################
+
+NUOPC = true
+ESMFDIR = /usr2/luca/Devs/esmf-8.6.0
+
+##############################################
 # end of user defined parameters and flags
 ##############################################
 

@@ -119,8 +119,8 @@ endif
 # ESMF-NUOPC files
 #------------------------------------------------------------
 
-NUOPC          = false
-DIRBASE_ESMF   = /usr2/luca/Devs/esmf-8.6.0
+NUOPC          = true
+DIRBASE_ESMF   = $(ESMFDIR)
 DIRLIB_ESMF    = $(DIRBASE_ESMF)/lib/libO/Linux.gfortran.64.mpiuni.default
 ESMF_MKFILE    = $(DIRLIB_ESMF)/esmf.mk
 NUOPCMOD       = ocean_shyfem
