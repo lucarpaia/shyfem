@@ -99,6 +99,9 @@
 	!! As done for the earth system component, the following subroutines register
 	!! the members and methods for the the ocean model object that enters as first
 	!! argument.
+        !!
+	!! \subsection{Advertise}
+        !!
 	!! The purpose of \textsf{Advertise()} is for your model to advertise its 
 	!! import and export fields. This means that your model announces which model 
 	!! variables it is capable of exporting (e.g., an ocean might export water 
@@ -180,6 +183,9 @@
 
 	!-----------------------------------------------------------------------------
 
+        !!
+        !! \subsection{Realize}
+        !!
 	!! The following code fragment shows the \textsf{Realize} subroutine. During 
 	!! this phase, fields that were previously advertised should now be realized. 
 	!! Realizing a field means that an \textsf{ESMF\_Field} object is created and 
@@ -273,6 +279,9 @@
 
 	!-----------------------------------------------------------------------------
 
+        !!
+        !! \subsection{Set the Clock}
+        !!
 	subroutine SetClock(model, rc)
 	  type(ESMF_GridComp)  :: model
 	  integer, intent(out) :: rc
@@ -309,6 +318,9 @@
 
 	!-----------------------------------------------------------------------------
 
+        !!
+        !! \subsection{Advance SHYFEM}
+        !!
 	!! The SHYFEM ocean model advances the shallow water multilayer equations for
 	!! stratified flows of one time step:
 	!! \[
@@ -338,7 +350,7 @@
 	  type(ESMF_Time)             :: currTime
 	  type(ESMF_TimeInterval)     :: timeStep
 	  character(len=160)          :: msgString
-	  double precision, parameter :: minusOne = -1.
+          double precision            :: timeStepSec
 
 #define NUOPC_TRACE__OFF
 #ifdef NUOPC_TRACE
@@ -355,17 +367,8 @@
      +	    file=__FILE__))
      +	    return  ! bail out
 
-	  !! This is the call to the SHYFEM subroutine that timesteps
-	  !! the ocean variables for one ocean-atmosphere timestep.
-	  call shyfem_run(minusOne)
-
-	  ! Because of the way that the internal Clock was set in SetClock(),
-	  ! its timeStep is likely smaller than the parent timeStep. As a consequence
-	  ! the time interval covered by a single parent timeStep will result in
-	  ! multiple calls to the Advance() routine. Every time the currTime
-	  ! will come in by one internal timeStep advanced. This goes until the
-	  ! stopTime of the internal Clock has been reached.
-
+	  !! We access to the clock object in different ways: here we
+	  !! output the current time to the log file:
      	  call ESMF_ClockPrint(clock, options="currTime",
      +	    preString="------>Advancing OCN from: ",unit=msgString,rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
@@ -378,12 +381,26 @@
      +	    file=__FILE__))
      +	    return  ! bail out
 
+          !! Later we retrieve two important members of the clock object,
+	  !! the \textsf{currTime} object and the \textsf{timeStep} object
 	  call ESMF_ClockGet(clock, currTime=currTime,
      +      timeStep=timeStep, rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +	    line=__LINE__,
      +	    file=__FILE__))
      +	    return  ! bail out
+
+	  !! SHYFEM advance of one time step $\Delta t_{ao}$, we need
+	  !! to access this information. From the \textsf{timeStep} 
+	  !! object we query for the time step. The argument  
+	  !! \textsf{s\_r8} tells to return it in second with double 
+	  !! precision, which is the correct format for time variables 
+          !! in SHYFEM.
+	  call ESMF_TimeIntervalGet(timeStep, s_r8=timeStepSec, rc=rc)
+
+          !! This is the call to the SHYFEM subroutine that timesteps
+          !! the ocean variables for one ocean-atmosphere timestep.
+	  call shyfem_run(timeStepSec)
 
 	  call ESMF_TimePrint(currTime + timeStep,
      +	    preString="---------------------> to: ",unit=msgString,rc=rc)
@@ -404,6 +421,9 @@
 
 	!-----------------------------------------------------------------------------
 
+        !!
+        !! \subsection{Finalize SHYFEM}
+        !!
   	!! We register a method for the finalization of the ocean code. Here files are 
   	!! closed and the processes is killed with the memory cleaned through the 
 	!! deallocations of the data structures. 

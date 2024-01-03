@@ -523,7 +523,14 @@
 	double precision dtmax		!run to this time
 
 	dtmax = dtend					!stand-alone mode
-	if( dtstep > 0. ) dtmax = dtime + dtstep	!nuopc mode
+	if( dtstep > 0. ) then
+	  dtmax = dtime + dtstep	!nuopc mode
+	  print *
+	  write(6,1200)' nuopc call to shyfem               nuopc dt : ', 
+     &	    dtstep
+	  print *
+ 1200   format(a,f12.2)
+	end if
 
 	do while( dtime .lt. dtmax )
 
