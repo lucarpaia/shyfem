@@ -55,7 +55,7 @@
 	  !! specific \textsf{specLabel} that denote a specific operation. The labels
 	  !! can be regrouped into three phases: 
 	  !! \begin{itemize}
-  	  !! \item initialization: advertise, realize and set the clock 
+  	  !! \item initialization: advertise and realize
 	  !! \item run: advance
 	  !! \item finalization: finalize
 	  !! \end{itemize}
@@ -72,12 +72,6 @@
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +	    line=__LINE__,
      +	    file=__FILE__))
-     +	    return  ! bail out
-	  call NUOPC_CompSpecialize(model, specLabel=label_SetClock,
-     +	    specRoutine=SetClock, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
      +	    return  ! bail out
 	  call NUOPC_CompSpecialize(model, specLabel=label_Advance,
      +	    specRoutine=Advance, rc=rc)
@@ -274,45 +268,6 @@
      +	    line=__LINE__,
      +     file=__FILE__))
      +     return  ! bail out
-
-	end subroutine
-
-	!-----------------------------------------------------------------------------
-
-        !!
-        !! \subsection{Set the Clock}
-        !!
-	subroutine SetClock(model, rc)
-	  type(ESMF_GridComp)  :: model
-	  integer, intent(out) :: rc
-
-	  ! local variables
-	  type(ESMF_Clock)              :: clock
-	  type(ESMF_TimeInterval)       :: stabilityTimeStep
-
-	  rc = ESMF_SUCCESS
-
-	  ! query for clock
-	  call NUOPC_ModelGet(model, modelClock=clock, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-
-	  ! initialize internal clock
-	  ! here: parent Clock and stability timeStep determine actual model timeStep
-	  !TODO: stabilityTimeStep should be read in from configuation
-	  !TODO: or computed from internal Grid information
-	  call ESMF_TimeIntervalSet(stabilityTimeStep, m=5, rc=rc) ! 5 minute steps
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-	  call NUOPC_CompSetClock(model, clock, stabilityTimeStep, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
 
 	end subroutine
 
