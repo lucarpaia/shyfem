@@ -128,7 +128,7 @@
 	  !! the initial conditions are set and data structures are initialized:  
 	  call shyfem_initialize
 	  call ESMF_LogWrite("Initialized OCN", ESMF_LOGMSG_INFO, rc=rc)
-      
+
 	  ! query for importState and exportState
 	  call NUOPC_ModelGet(model, importState=importState,
      +	    exportState=exportState, rc=rc)
@@ -138,7 +138,7 @@
      +	    return  ! bail out
 
 	  !! We have added a macro to rapidly decouple the ocean component from the rest
-          !! of the earth system.  Disabling the following macro, e.g. renaming to WITHIMPORTFIELDS_disable,
+          !! of the earth system.  Disabling the following macro,
 	  !! will result in an ocean component that does not advertise any importable
 	  !! Fields. Use should you this only if you want to drive the model independently.
 #define WITHIMPORTFIELDS
@@ -215,6 +215,7 @@
 	  type(ESMF_Field)        :: field
 	  type(ESMF_Grid)         :: gridIn
 	  type(ESMF_Grid)         :: gridOut
+          type(ESMF_Grid)         :: meshIn
 
 	  rc = ESMF_SUCCESS
 
@@ -244,6 +245,12 @@
      +	    return  ! bail out
 	  gridOut = gridIn ! for now out same as in
 
+          call SHYFEM_MeshGet(meshIn, rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return
+          call ESMF_LogWrite("  Get Mesh OCN", ESMF_LOGMSG_INFO, rc=rc)
 
           !! An ESMF Field represents a physical field, such as temperature. 
           !! The motivation for including Fields in ESMF is that bundles of Fields 
@@ -502,7 +509,7 @@
      +	    preString="---------------------> to: ",unit=msgString,rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +	    line=__LINE__,
-     +	    file=__FILE__))
+     +      file=__FILE__))
      +	    return  ! bail out
 	  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
  	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
@@ -549,5 +556,177 @@
 	end subroutine
 
 	!-----------------------------------------------------------------------------
+
+        !!
+        !! \subsection{Get SHYFEM mesh}
+        !!
+	!! This section describes how to get the mesh from SHYFEM and set into a ESMF 
+	!! Mesh class. It starts with an explanation of creating a Mesh and then goes 
+	!! through other Mesh methods. To create a Mesh we need to set some properties 
+	!! of the Mesh as a whole, some properties of each node in the mesh and then 
+	!! some properties of each element which connects the nodes.
+	!! For the Mesh as a whole we set its parametric dimension (\textsf{parametricDim}) 
+	!! and spatial dimension (\textsf{spatialDim}). A Mesh's parametric dimension can 
+	!! be thought of as the dimension of the elements which make up the Mesh.
+	!! A Mesh's spatial dimension, on the other hand, is the is the number of coordinate 
+	!! dimensions needed to describe the location of the nodes making up the Mesh. For
+	!! SHYFEM both are always two, which means that the mesh is defined in parametric
+	!! two-dimensional manifold. Even is spherical coordinates, SHYFEM use the spherical
+	!! transformation to transform the differential operator on a two-dimensional. 
+	!! Another important properties of SHYFEM mesh is that they are made of only 
+	!! triangular elements. Without loss of generality we can assume that a mesh looks
+	!! like the one in figure:
+	!!
+	!!\begin{minipage}{\linewidth} 
+	!!\begin{verbatim}
+	!!
+	!! 
+	!!  2.0   7 ------- 8 ------- 9
+	!!        |  \   6  |  \   4  |
+	!!        |    \    |    \    |
+	!!        |  7    \ |  5    \ |
+	!!  1.0   4 ------- 5 ------- 6
+	!!        |  \   8  |  \   3  |
+	!!        |    \    |    \    |
+	!!        |  1    \ |  2   \  |
+	!!  0.0   1 ------- 2 ------- 3
+	!!
+	!!       0.0       1.0        2.0 
+	!! 
+	!!        Node Id labels at corners
+	!!       Element Id labels in centers
+	!!       (Everything owned by PET 0) 
+	!!
+	!!\end{verbatim}
+	!!\end{minipage}
+	!!
+	!! With this is mind let's have a look to the subroutine that get SHYFEM mesh.
+	subroutine SHYFEM_MeshGet(SHYFEM_mesh, rc)
+
+          type(ESMF_Mesh), intent(out)    :: SHYFEM_mesh
+          integer, intent(out) 		  :: rc
+
+	  !! First note the type \textsf{ESMF\_Mesh} which defines an unstructured grid
+	  !! object. Other global and local properties of the mesh follows: 
+          integer                         :: SHYFEM_spatialDim = 2
+	  integer                         :: SHYFEM_numberOfNodes
+	  integer                         :: SHYFEM_numberOfElements
+	  integer, allocatable            :: SHYFEM_nodeIds(:)
+	  integer, allocatable            :: SHYFEM_nodeOwners(:)
+	  real(ESMF_KIND_R8), allocatable :: SHYFEM_nodeCoords(:)
+          integer, allocatable            :: SHYFEM_elementIds(:)
+	  integer, allocatable            :: SHYFEM_elementTypes(:)
+	  integer, allocatable            :: SHYFEM_elementConn(:)
+
+	  integer :: i, ie
+
+	  rc = ESMF_SUCCESS
+
+	  !! We save the number of nodes and the number of elements
+	  !! We got this from the well known global variables \textsf{nkn}
+	  !! and \textsf{nel} of SHYFEM. These are available into the module
+	  !! \textsf{grid} which is nested into \textsf{mod\_shyfem}
+	  SHYFEM_numberOfNodes    = nkn
+          SHYFEM_numberOfElements = nel
+
+          allocate( SHYFEM_nodeIds(SHYFEM_numberOfNodes) )
+	  allocate( SHYFEM_nodeCoords(SHYFEM_numberOfNodes
+     +      *SHYFEM_spatialDim) )
+          allocate( SHYFEM_nodeOwners(SHYFEM_numberOfNodes) )
+
+	  allocate( SHYFEM_elementIds(SHYFEM_numberOfElements) )
+          allocate( SHYFEM_elementTypes(SHYFEM_numberOfElements) )
+          allocate( SHYFEM_elementConn(SHYFEM_numberOfElements*3) )
+
+	  !! The structure of the per node and element information used to 
+	  !! create a Mesh is influenced by the Mesh distribution strategy. 
+	  !! The Mesh class is distributed by elements. This means that a node 
+	  !! must be present on any PET that contains an element associated with 
+	  !! that node, but not on any other PET (a node can't be on a PET
+	  !! without an element "home"). Since a node may be used by two or more 
+	  !! elements located on different PETs, a node may be duplicated on 
+	  !! multiple PETs. When a node is duplicated in this manner, 
+	  !! one and only one of the PETs that contain the node must "own" the node. 
+	  !! The user sets this ownership when they define the nodes during Mesh 
+	  !! creation. For each node in the Mesh we set three properties:
+	  !! the global id of the node (\textsf{nodeIds}), node coordinates 
+	  !! (\textsf{nodeCoords}), and which PET owns the node ({\textsf{nodeOwners}).
+	  !! The node id is a unique (across all PETs) integer attached to 
+	  !! the particular node. It is used to indicate which nodes are the 
+	  !! same when connecting together pieces of the Mesh on different 
+	  !! processors. The node coordinates indicate the location of a node 
+	  !! in space and are used in the \textsf{ESMF\_FieldRegrid()} functionality 
+	  !! when interpolating. The node owner indicates which PET is in charge 
+	  !! of the node. This is used when creating a Field on the Mesh to 
+	  !! indicate which PET should contain a Field location for the data. 
+	  !! The \textsf{nodeCoords} is an array containing the physical coordinates 
+	  !! of the nodes to be created on this PET. This input consists of a 1D array 
+	  !! the size of the number of nodes on this PET times the Mesh's spatial 
+	  !! dimension (\textsf{spatialDim}). The coordinates in this array are ordered 
+	  !! so that the coordinates for a node lie in sequence in memory. For the 
+	  !! example shown above coordinates are in the following sequence
+	  !! $\{x_1,\,y_1,\,...,\,x_9,\,y_9\}$. 
+	  SHYFEM_nodeOwners = 0
+	  do i=1,SHYFEM_numberOfNodes
+	    SHYFEM_nodeIds(i) = i
+	    SHYFEM_nodeCoords(i*SHYFEM_spatialDim-1) = xgv(i)
+	    SHYFEM_nodeCoords(i*SHYFEM_spatialDim)   = ygv(i)
+	  enddo
+
+	  !! For each element in the Mesh we set three properties: the global id 
+	  !! of the element (\textsf{elementIds}), the topology type of the element 
+	  !! (\textsf{elementTypes}), and which nodes are connected together to form 
+	  !! the element (\textsf{elementConn}). The element id is a unique (across all PETs) 
+	  !! integer attached to the particular element. The element type describes 
+	  !! the topology of the element (e.g. a triangle vs. a quadrilateral). 
+	  !! The range of choices for the topology of the elements in a Mesh are 
+	  !! The element connectivity indicates which nodes are to be connected 
+	  !! together to form the element. The number of nodes connected together for 
+	  !! each element is implied by the elements topology type ({\textsf{elementTypes}). 
+	  !! It is IMPORTANT to note, that 
+	  !! the entries in this list are NOT the global ids of the nodes, but are indices 
+	  !! into the PET local lists of node info used in the Mesh Create. In other words, 
+	  !! the element connectivity isn't specified in terms of the global list of nodes, 
+	  !! but instead is specified in terms of the locally described node info. One 
+	  !! other important point about connectivities is that the order of the nodes in the 
+	  !! connectivity list of an element is important. In general, when specifying an 
+	  !! element with parametric dimension 2, the nodes should be given in 
+	  !! counterclockwise order around the element. 
+	  SHYFEM_elementTypes = ESMF_MESHELEMTYPE_TRI
+          do ie=1,SHYFEM_numberOfElements
+            SHYFEM_elementIds(ie) = ie
+	    do i=1,3
+              SHYFEM_elementConn((ie-1)*3+i) = nen3v(i,ie)
+	    enddo
+          enddo
+
+	  !! Once we have collected the mesh properties in the correct form, 
+	  !! a final call create the mesh object at once. We also print to
+	  !! file in vtk format, that can be visualize with Paraview.
+	  SHYFEM_mesh = ESMF_MeshCreate(parametricDim=SHYFEM_spatialDim,
+     +      spatialDim=SHYFEM_spatialDim,
+     +      coordSys=ESMF_COORDSYS_CART,
+     +      nodeIds=SHYFEM_nodeIds, nodeCoords=SHYFEM_nodeCoords,
+     +      nodeOwners=SHYFEM_nodeOwners, elementIds=SHYFEM_elementIds,
+     +      elementTypes=SHYFEM_elementTypes, 
+     +      elementConn=SHYFEM_elementConn,
+     +      rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+          deallocate( SHYFEM_nodeIds, SHYFEM_nodeOwners, 
+     +      SHYFEM_nodeCoords )
+	  deallocate( SHYFEM_elementIds, SHYFEM_elementTypes, 
+     +      SHYFEM_elementConn )
+
+	  call ESMF_MeshWrite(SHYFEM_mesh, "shyfem_mesh", rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+	end subroutine
 
 	end module
