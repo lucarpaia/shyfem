@@ -215,7 +215,7 @@
 	  type(ESMF_Field)        :: field
 	  type(ESMF_Grid)         :: gridIn
 	  type(ESMF_Grid)         :: gridOut
-          type(ESMF_Grid)         :: meshIn
+          type(ESMF_Mesh)         :: meshIn
 
 	  rc = ESMF_SUCCESS
 
