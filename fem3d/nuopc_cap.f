@@ -234,8 +234,8 @@
 	  !! grids, use an \textsf{ESMF\_Mesh}. 
 	  ! create a Grid object for Fields
 	  gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/10, 10/),
-     +	minCornerCoord=(/0._ESMF_KIND_R8, 0._ESMF_KIND_R8/),
-     +	maxCornerCoord=(/100000._ESMF_KIND_R8, 100000._ESMF_KIND_R8/),
+     +	minCornerCoord=(/-5._ESMF_KIND_R8, -5._ESMF_KIND_R8/),
+     +	maxCornerCoord=(/5._ESMF_KIND_R8, 5._ESMF_KIND_R8/),
      +	    coordSys=ESMF_COORDSYS_CART, 
      +      staggerLocList=(/ESMF_STAGGERLOC_CENTER/),
      +	    rc=rc)
@@ -286,8 +286,8 @@
           !! An \textsf{ESMF\_Field} is created by passing the field name 
           !! (should be the same as advertised), the grid, and the data type of the 
           !! field to \textsf{ESMF\_FieldCreate}. 
-	  field = ESMF_FieldCreate(name="pmsl", grid=gridIn,
-     +	    typekind=ESMF_TYPEKIND_R8, staggerloc=ESMF_STAGGERLOC_CENTER, 
+	  field = ESMF_FieldCreate(meshIn,
+     +	    ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="pmsl",
      +      rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +	    line=__LINE__,
@@ -302,8 +302,9 @@
      +	    return  ! bail out
 
 	  !! The others fields follow identically:
-	  field = ESMF_FieldCreate(name="rsns", grid=gridIn,
-     +	    typekind=ESMF_TYPEKIND_R8, rc=rc)
+	  field = ESMF_FieldCreate(meshIn,
+     +	    ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="rsns",
+     +      rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +	    line=__LINE__,
      +	    file=__FILE__))
@@ -314,8 +315,9 @@
      +	    file=__FILE__))
      +	  return  ! bail out
 
-          field = ESMF_FieldCreate(name="smes", grid=gridIn,
-     +      typekind=ESMF_TYPEKIND_R8, rc=rc)
+          field = ESMF_FieldCreate(meshIn,
+     +      ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="smes",
+     +      rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
      +      file=__FILE__))
@@ -326,8 +328,9 @@
      +      file=__FILE__))
      +    return  ! bail out
 
-          field = ESMF_FieldCreate(name="smns", grid=gridIn,
-     +      typekind=ESMF_TYPEKIND_R8, rc=rc)
+          field = ESMF_FieldCreate(meshIn,
+     +      ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="smns",
+     +      rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
      +      file=__FILE__))
@@ -391,9 +394,9 @@
 
 !! Work in progress !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 	  type(ESMF_Field)            :: field
-	  double precision, pointer   :: pmslPtr(:,:)
-          double precision, pointer   :: smesPtr(:,:)
-          double precision, pointer   :: smnsPtr(:,:)
+	  double precision, pointer   :: pmslPtr(:)
+          double precision, pointer   :: smesPtr(:)
+          double precision, pointer   :: smnsPtr(:)
 	  integer                     :: totalLBnd(2)
 	  integer                     :: totalUBnd(2)
 	  integer                     :: total_count(2)
@@ -427,12 +430,17 @@
      +	    return  ! bail out
           
 	  call ESMF_FieldGet(field, localDe=0, farrayPtr=pmslPtr,
-     +	    totalLBound=totalLBnd, totalUBound=totalUBnd,
-     +	    totalCount=total_count, rc=rc)
+     +	    rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +	    line=__LINE__,
      +	    file=__FILE__))
      +	    return  ! bail out
+
+	  call SHYFEM_FieldWrite(field, "pmsl.vtk", rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
 
           call ESMF_StateGet(importState, field=field, 
      +      itemName="smes", rc=rc)
@@ -440,14 +448,21 @@
      +      line=__LINE__,
      +      file=__FILE__))
      +      return  ! bail out
-          
+
           call ESMF_FieldGet(field, localDe=0, farrayPtr=smesPtr,
-     +      totalLBound=totalLBnd, totalUBound=totalUBnd,
-     +      totalCount=total_count, rc=rc)
+     +      rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
      +      file=__FILE__))
      +      return  ! bail out
+
+          call SHYFEM_FieldWrite(field, "smes.vtk", rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+          tauxnv = smesPtr
 
           call ESMF_StateGet(importState, field=field,
      +      itemName="smns", rc=rc)
@@ -457,16 +472,11 @@
      +      return  ! bail out
 
           call ESMF_FieldGet(field, localDe=0, farrayPtr=smnsPtr,
-     +      totalLBound=totalLBnd, totalUBound=totalUBnd,
-     +      totalCount=total_count, rc=rc)
+     +      rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
      +      file=__FILE__))
      +      return  ! bail out
-
-	  print *, "OCN: pmsl -> ", pmslPtr
-          print *, "OCN: smes -> ", smesPtr
-          print *, "OCN: smns -> ", smnsPtr
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -728,5 +738,91 @@
      +      return  ! bail out
 
 	end subroutine
+
+        !-----------------------------------------------------------------------------
+
+        !! Eventually we write the regridded fields to files.
+	!! This can be helpful for debugging and checking the interpolations.
+	!! We can write such a file with ESMF subroutine \textsf{SHYFEM\_FieldWrite}
+	!! but this works only with the third party library PARALLELIO (PIO).
+	!! Moreover the only format allowed when this manual was written was netcdf
+	!! (ugrid). We have preferred to do use vtk format to visualize the data,
+	!! as done with the mesh. This lead to only one type of file outputted.
+	!! Vtk files can be visualize nicely with Paraview.
+        subroutine SHYFEM_FieldWrite(field, filename, rc)
+
+          type(ESMF_Field), intent(in)  :: field
+	  character(len=*), intent(in)  :: filename
+          integer, intent(out)          :: rc
+
+	  ! local variables
+          double precision, pointer   :: ptr(:)
+          character(20) :: str
+          integer :: i, ie, ii
+
+	  !! We recovet the field with the usual call
+          call ESMF_FieldGet(field, localDe=0, farrayPtr=ptr,
+     +      rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+	  !! We spend some word about the vtk format. We use
+	  !! three digits to represents point coordinates, that means
+	  !! that you can reach mm of resolution in you mesh but not beyond.
+	  !! Paraview does not like zeros as float 0.00 and I had to manually
+	  !! write zero as an integer. For the variable precision we assume
+	  !! that three digits are also sufficient.
+	  open(1, file = filename, status = 'unknown')
+	  write(1,'(a)') "# vtk DataFile Version 3.0"
+	  write(1,'(a)') "This file was generated by NUOPC"
+	  write(1,'(a)') "ASCII"
+	  write(1,'(a)') "DATASET UNSTRUCTURED_GRID"
+	  write(1,'(a)', advance='no') "POINTS ";
+	  write(1, *) nkn, " double"
+	  do i=1,nkn
+            write(str,'(f6.3)') xgv(i)
+	    str = trim(adjustl(str))
+	    do ii = len_trim(str),1,-1
+	      if (str(ii:ii)/="0") exit
+	    enddo
+            if (str(ii:ii)==".") ii=ii-1
+	    write(1,'(aX)', advance="no") str(1:ii)
+            write(str,'(f6.3)') ygv(i)
+            str = trim(adjustl(str))
+            do ii = len_trim(str),1,-1
+              if (str(ii:ii)/="0") exit
+            enddo
+	    if (str(ii:ii)==".") ii=ii-1
+            write(1,'(aX,i1)') str(1:ii), 0
+	  end do
+	  write(1,'(a)', advance='no') "CELLS "
+	  write(1, *) nel, nel*4
+          do ie=1,nel
+            write(1,"(i6X,i6X,i6X,i6)") 3,
+     +	      nen3v(1,ie)-1, nen3v(2,ie)-1, nen3v(3,ie)-1
+          end do
+          write(1,'(a)', advance="no") "CELL_TYPES "
+	  write(1, *) nel
+          do ie=1,nel
+            write(1,*) 5
+          end do
+	  write(1,'(a)', advance="no") "POINT_DATA "
+	  write(1, *) nkn
+	  write(1,'(a)') "SCALARS _NODE_NUM double 1"
+	  write(1,'(a)') "LOOKUP_TABLE default"
+          do i=1,nkn
+            write(str,'(f6.3)') ptr(i)
+            str = trim(adjustl(str))
+            do ii = len_trim(str),1,-1
+              if (str(ii:ii)/="0") exit
+            enddo
+            if (str(ii:ii)==".") ii=ii-1
+            write(1,'(aX)', advance="no") str(1:ii)
+          end do
+	  close(1)
+
+        end subroutine
 
 	end module
