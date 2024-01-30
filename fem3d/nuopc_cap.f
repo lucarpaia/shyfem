@@ -25,7 +25,25 @@
 
 	implicit none
 
+	!! We declare private members and methods. \textsf{SHYFEM\_FieldMetadata}
+	!! is an object that was not present in ESMF. We have created it in the cap
+	!! layer and for this reason it has the SHYFEM prefix. This object contains
+	!! important information to create the ESMF fields and will help us
+	!! in factorizing field creation within do loops, instead of doing evreything
+	!! manually. The info concerns the field names and mesh staggering
+	!! and are initialized here with default values.
 	private
+
+	type SHYFEM_Metadata
+	  character(4)                :: fieldName = " "
+          character(40)               :: longName = " "
+	  type(ESMF_MeshLoc)          :: meshloc = ESMF_MESHLOC_NODE
+	end type
+
+	integer :: SHYFEM_numOfImportFields
+        integer :: SHYFEM_numOfExportFields
+	type(SHYFEM_Metadata), allocatable, 
+     +     save :: SHYFEM_FieldMetadata(:)
 
 	public SetServices
 
@@ -120,6 +138,7 @@
 
 	  ! local variables
 	  type(ESMF_State)        :: importState, exportState
+	  integer                 :: var, numImp
 
 	  rc = ESMF_SUCCESS
 
@@ -137,62 +156,97 @@
      +	    file=__FILE__))
      +	    return  ! bail out
 
-	  !! We have added a macro to rapidly decouple the ocean component from the rest
-          !! of the earth system.  Disabling the following macro,
-	  !! will result in an ocean component that does not advertise any importable
-	  !! Fields. Use should you this only if you want to drive the model independently.
-#define WITHIMPORTFIELDS
-#ifdef WITHIMPORTFIELDS
-	  !! The following are the standard variable that are imported in the 
-	  !! ocean component. 
-	  !! We have the atmospheric pressure at sea-level $p_a$ that
-	  !! act as a forcing term on the momentum equation.
-	  call NUOPC_Advertise(importState,
-     +	    StandardName="air_pressure_at_sea_level", name="pmsl", rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
+	  !! The fields are organized with a precise order in a \textsf{SHYFEM\_FieldMetadata}
+	  !! array. This ordering is beneficial to factorize the code and perform the 
+	  !! many operations of the fields with do loops. You have to keep in mind that, 
+	  !! first we have import fields, and only after we have export fields. 
+	  allocate(SHYFEM_FieldMetadata(5) )
 
-          !! The next is the net radiation flux $R$.
-	  call NUOPC_Advertise(importState,
-     +	    StandardName="surface_net_downward_shortwave_flux", 
-     +      name="rsns", rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
+          !! We have added two macros to rapidly decouple the ocean component from the rest
+          !! of the earth system. Disabling both the following macros,
+          !! will result in an ocean component that does not advertise any importable
+          !! Fields. Use should you this only if you want to drive the model independently.
+          !! You could also couples the ocean component through momentum or heat flux. 
+          !! This may be useful for debugging, for exmaple. In general, both the macros must
+          !! be defined.
+#define WITHIMPORTFIELDS_MOMENTUMFLUX
+#define WITHIMPORTFIELDS_HEATFLUX
 
-	  !! We have the ocean-atmosphere flux $F_{oa}(U^{n}_o,U^{n}_a)$ 
+          !! The metadata of each field is filled with a simple constructor statement.
+          !! In the following we describe each field rapidly. 
+          numImp = 0
+
+#ifdef WITHIMPORTFIELDS_MOMENTUMFLUX
+          numImp = 3
+
+          !! \begin{itemize}
+          !! \item atmospheric pressure at sea-level $p_a$ that
+          !! act as a forcing term on the momentum equation.
+          SHYFEM_FieldMetadata(1) = SHYFEM_Metadata(fieldName="pmsl",
+     +      longName="air_pressure_at_sea_level",
+     +      meshloc=ESMF_MESHLOC_NODE)
+
+          !! \item ocean-atmosphere flux $F_{oa}(U^{n}_o,U^{n}_a)$ 
           !! that describes the flux across the surface for momentum (wind stress) 
-	  !! and temperature (heat flux). These fluxes are typically computed by the
-	  !! the atmospheric component with the aid of bulk formulae.
+          !! and temperature (heat flux). These fluxes are typically computed by the
+          !! the atmospheric component with the aid of bulk formulae.
           !! For now we have added only momentum flux that has two components.
-          call NUOPC_Advertise(importState,
-     +      StandardName="surface_downward_eastward_stress",
-     +      name="smes", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
+          SHYFEM_FieldMetadata(2) = SHYFEM_Metadata(fieldName="smes",
+     +      longName="surface_downward_eastward_stress",
+     +      meshloc=ESMF_MESHLOC_NODE)
 
-          call NUOPC_Advertise(importState,
-     +      StandardName="surface_downward_northward_stress",
-     +      name="smns", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
+          SHYFEM_FieldMetadata(3) = SHYFEM_Metadata(fieldName="smns",
+     +      longName="surface_downward_northward_stress",
+     +      meshloc=ESMF_MESHLOC_NODE)
+
 #endif
+#ifdef WITHIMPORTFIELDS_HEATFLUX
+          numImp = numImp + 1
+
+          !! \item net radiation flux $R$.
+          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
+     +      fieldName="rsns",
+     +      longName="surface_net_downward_shortwave_flux",
+     +      meshloc=ESMF_MESHLOC_NODE)
+
+#endif
+          SHYFEM_numOfImportFields = numImp
+          SHYFEM_numOfExportFields = 1
+
+	  !! \item sea surface salinity.
+	  SHYFEM_FieldMetadata(5) = SHYFEM_Metadata(fieldName="sst",
+     +      longName="sea_surface_temperature",
+     +      meshloc=ESMF_MESHLOC_NODE)
+
+          !! \end{itemize}
+	  !! The with a do loop The following we advertise the import state in the 
+	  !! ocean component.
+	  do var=1,SHYFEM_numOfImportFields
+
+	    call NUOPC_Advertise(importState,
+     +	      StandardName=SHYFEM_FieldMetadata(var)%longName, 
+     +        name=SHYFEM_FieldMetadata(var)%fieldName, rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +	      file=__FILE__))
+     +	      return  ! bail out
+
+	  enddo
 
 	  !! As output the ocean state at the surface layer must be 
 	  !! exorted. For now we have exported only the sea surface temperature.
-	  call NUOPC_Advertise(exportState,
-     +	    StandardName="sea_surface_temperature", name="sst", rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
+          do var=SHYFEM_numOfImportFields+1,
+     +         SHYFEM_numOfImportFields+SHYFEM_numOfExportFields
+
+	    call NUOPC_Advertise(exportState,
+     +        StandardName=SHYFEM_FieldMetadata(var)%longName,
+     +        name=SHYFEM_FieldMetadata(var)%fieldName, rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +	      file=__FILE__))
+     +	      return  ! bail out
+
+	  enddo
 
 	end subroutine
 
@@ -213,9 +267,10 @@
 	  type(ESMF_State)        :: importState, exportState
 	  type(ESMF_TimeInterval) :: stabilityTimeStep
 	  type(ESMF_Field)        :: field
-	  type(ESMF_Grid)         :: gridIn
-	  type(ESMF_Grid)         :: gridOut
+!	  type(ESMF_Grid)         :: gridIn
+!	  type(ESMF_Grid)         :: gridOut
           type(ESMF_Mesh)         :: meshIn
+	  integer                 :: var
 
 	  rc = ESMF_SUCCESS
 
@@ -232,18 +287,21 @@
 	  !! \textsf{ESMF\_LocStream}. For 2D and 3D logically rectangular grids (such as
 	  !! a lat-lon grid), the typical choice is \textsf{ESMF\_Grid}. For unstructured
 	  !! grids, use an \textsf{ESMF\_Mesh}. 
-	  ! create a Grid object for Fields
-	  gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/10, 10/),
-     +	minCornerCoord=(/-5._ESMF_KIND_R8, -5._ESMF_KIND_R8/),
-     +	maxCornerCoord=(/5._ESMF_KIND_R8, 5._ESMF_KIND_R8/),
-     +	    coordSys=ESMF_COORDSYS_CART, 
-     +      staggerLocList=(/ESMF_STAGGERLOC_CENTER/),
-     +	    rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-	  gridOut = gridIn ! for now out same as in
+	  !! SHYFEM has already read the mesh during the advertise phase. With the command
+	  !! \textsf{SHYFEM\_MeshGet} the mesh is imported into a \textsf{ESMF\_Mesh} 
+	  !! object and later we also write into vtk file to check that evreything is ok.
+	  !! Vtk files can be opened with Paraview.
+!	  gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/10, 10/),
+!     +	minCornerCoord=(/-5._ESMF_KIND_R8, -5._ESMF_KIND_R8/),
+!     +	maxCornerCoord=(/5._ESMF_KIND_R8, 5._ESMF_KIND_R8/),
+!     +	    coordSys=ESMF_COORDSYS_CART, 
+!     +      staggerLocList=(/ESMF_STAGGERLOC_CENTER/),
+!     +	    rc=rc)
+!	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +	    line=__LINE__,
+!     +	    file=__FILE__))
+!     +	    return  ! bail out
+!	  gridOut = gridIn ! for now out same as in
 
           call SHYFEM_MeshGet(meshIn, rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
@@ -251,6 +309,12 @@
      +      file=__FILE__))
      +      return
           call ESMF_LogWrite("  Get Mesh OCN", ESMF_LOGMSG_INFO, rc=rc)
+
+          call ESMF_MeshWrite(meshIn, "shyfem_mesh", rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
 
           !! An ESMF Field represents a physical field, such as temperature. 
           !! The motivation for including Fields in ESMF is that bundles of Fields 
@@ -273,86 +337,60 @@
           !! discussed in more detail in the documentation for the specific method calls. 
           !! ESMF does not currently support vector fields, so the components of a 
           !! vector field must be stored as separate Field objects.
-
+	  !!
 	  !! With the following commands we create a field for the pressure. Fields
 	  !! in ESMF are of type \textsf{ESMF\_field}.
 	  !! The subroutine \textsf{ESMF\_FieldCreate} simply associates the data 
 	  !! with the Grid. The keywords are very important. The keyword \textsf{staggerloc}
 	  !! specifies how the data is attached to the grid. \textsf{typekind} tells about 
           !! the data type, in this case double precision. The name that have been advertised must be 
-	  !! also appended. 
-#ifdef WITHIMPORTFIELDS
-
+	  !! also appended.
+	  !! 
           !! An \textsf{ESMF\_Field} is created by passing the field name 
-          !! (should be the same as advertised), the grid, and the data type of the 
-          !! field to \textsf{ESMF\_FieldCreate}. 
-	  field = ESMF_FieldCreate(meshIn,
-     +	    ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="pmsl",
-     +      rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-          !! Fields are put into import or export States by calling 
-          !! \textsf{NUOPC\_Realize}.
-	  call NUOPC_Realize(importState, field=field, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
+          !! (should be the same as advertised), the grid, the staggering, and the data type of the 
+          !! field to \textsf{ESMF\_FieldCreate}.
+	  do var=1,SHYFEM_numOfImportFields
 
-	  !! The others fields follow identically:
-	  field = ESMF_FieldCreate(meshIn,
-     +	    ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="rsns",
-     +      rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-	  call NUOPC_Realize(importState, field=field, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	  return  ! bail out
+	    field = ESMF_FieldCreate(meshIn,
+     +	      ESMF_TYPEKIND_R8,
+     +        meshloc=SHYFEM_FieldMetadata(var)%meshloc, 
+     +        name=SHYFEM_FieldMetadata(var)%fieldName,
+     +        rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +	      file=__FILE__))
+     +	      return  ! bail out
 
-          field = ESMF_FieldCreate(meshIn,
-     +      ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="smes",
-     +      rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
-          call NUOPC_Realize(importState, field=field, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +    return  ! bail out
+            !! Fields are put into import or export States by calling 
+            !! \textsf{NUOPC\_Realize}.
+	    call NUOPC_Realize(importState, field=field, rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +	      file=__FILE__))
+     +	      return  ! bail out
 
-          field = ESMF_FieldCreate(meshIn,
-     +      ESMF_TYPEKIND_R8, meshloc=ESMF_MESHLOC_NODE, name="smns",
-     +      rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
-          call NUOPC_Realize(importState, field=field, rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +    return  ! bail out
-#endif
+	  enddo
 
-	  field = ESMF_FieldCreate(name="sst", grid=gridOut,
-     +	    typekind=ESMF_TYPEKIND_R8, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-	  call NUOPC_Realize(exportState, field=field, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +     file=__FILE__))
-     +     return  ! bail out
+          do var=SHYFEM_numOfImportFields+1,
+     +         SHYFEM_numOfImportFields+SHYFEM_numOfExportFields
+
+	    field = ESMF_FieldCreate(meshIn,
+     +        ESMF_TYPEKIND_R8,
+     +        meshloc=SHYFEM_FieldMetadata(var)%meshloc,
+     +        name=SHYFEM_FieldMetadata(var)%fieldName,
+     +        rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +	      file=__FILE__))
+     +	      return  ! bail out
+
+	    call NUOPC_Realize(exportState, field=field, rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +       file=__FILE__))
+     +       return  ! bail out
+
+	  enddo
 
 	end subroutine
 
@@ -377,6 +415,9 @@
 	!! temperature and salinity of layer $\alpha$. $N$ the number of layers.
 	!! The operator $L_o$ is a finite element discretization of the shallow water 
 	!! multilayer equations. $F_{oa}$ are the atmosphere-ocean fluxes.
+	!! In this subrotine we do two things. We take the set the fluxes $F_{oa}$
+	!! inside SHYFEM, through a quite complex chain of commands. Then we advance 
+	!! SHYFEM.
 	subroutine Advance(model, rc)
 	  type(ESMF_GridComp)  :: model
 	  integer, intent(out) :: rc
@@ -392,16 +433,10 @@
 	  character(len=160)          :: msgString
           double precision            :: timeStepSec
 
-!! Work in progress !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+	  ! local variables 
 	  type(ESMF_Field)            :: field
-	  double precision, pointer   :: pmslPtr(:)
-          double precision, pointer   :: smesPtr(:)
-          double precision, pointer   :: smnsPtr(:)
-	  integer                     :: totalLBnd(2)
-	  integer                     :: totalUBnd(2)
-	  integer                     :: total_count(2)
-	  integer                     :: i,j
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	  double precision, pointer   :: fieldPtr(:)
+	  integer                     :: var
 
 #define NUOPC_TRACE__OFF
 #ifdef NUOPC_TRACE
@@ -410,7 +445,11 @@
 
 	  rc = ESMF_SUCCESS
 
-	  ! query for clock, importState and exportState
+	  !! The various objects are nested. We access the fields with three
+	  !! consecutive \textsf{Get} command. We start accessing the most
+	  !! exterior component, namely the model. We query for three
+	  !! objects: the \textsf{clock}, the \textsf{importState} 
+	  !! and \textsf{exportState}.
 	  call NUOPC_ModelGet(model, modelClock=clock,
      +      importState=importState, exportState=exportState, rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
@@ -418,68 +457,47 @@
      +	    file=__FILE__))
      +	    return  ! bail out
 
-!! WORK IN PROGRESS
-
+	  !! With a little bit of paranoia we print the import state object
+	  !! (this needs to be removed or added only in a debug mode):
 	  call ESMF_StatePrint(importState, rc=rc)
 
-	  call ESMF_StateGet(importState, field=field, 
-     +      itemName="pmsl", rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
+	  !! From the component, we retrieve the state and from the state
+	  !! we retreive the field. The field data is typically a large array 
+	  !! stored in memory, we use a pointer to it. Field can be written to a file.
+	  !! Finally, after all these \textsf{Get} commands, a \textsf{Set} commands
+	  !! copy the field pointer to the SHYFEM flux variables.
+	  do var=1,SHYFEM_numOfImportFields
+
+	    call ESMF_StateGet(importState, field=field, 
+     +        itemName=SHYFEM_FieldMetadata(var)%fieldName, rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +	      file=__FILE__))
+     +	      return  ! bail out
           
-	  call ESMF_FieldGet(field, localDe=0, farrayPtr=pmslPtr,
-     +	    rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
+	    call ESMF_FieldGet(field, localDe=0, farrayPtr=fieldPtr,
+     +	      rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +	      line=__LINE__,
+     +	      file=__FILE__))
+     +	      return  ! bail out
 
-	  call SHYFEM_FieldWrite(field, "pmsl.vtk", rc)
+	    call SHYFEM_FieldWrite(field, 
+     +      trim(SHYFEM_FieldMetadata(var)%fieldName)//trim(".vtk"), rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
+     +        line=__LINE__,
+     +        file=__FILE__))
+     +        return  ! bail out
 
-          call ESMF_StateGet(importState, field=field, 
-     +      itemName="smes", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
+	   print *, fieldPtr
 
-          call ESMF_FieldGet(field, localDe=0, farrayPtr=smesPtr,
-     +      rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
+	   call SHYFEM_FieldSet(fieldPtr,
+     +       SHYFEM_FieldMetadata(var)%fieldName, rc)
 
-          call SHYFEM_FieldWrite(field, "smes.vtk", rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
+	  enddo
 
-          tauxnv = smesPtr
-
-          call ESMF_StateGet(importState, field=field,
-     +      itemName="smns", rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
-
-          call ESMF_FieldGet(field, localDe=0, farrayPtr=smnsPtr,
-     +      rc=rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+	  !! The first task is completed. We move to the second one:
+	  !! advancing the model of one timestep.
 	  !! We access to the clock object in different ways: here we
 	  !! output the current time to the log file:
      	  call ESMF_ClockPrint(clock, options="currTime",
@@ -553,6 +571,8 @@
 
 	  ! HERE THE MODEL IS FINALIZED: 
 	  call shyfem_finalize
+
+	  deallocate(SHYFEM_FieldMetadata)
 
 	  call ESMF_LogWrite("Finalized OCN", ESMF_LOGMSG_INFO, rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
@@ -731,12 +751,6 @@
 	  deallocate( SHYFEM_elementIds, SHYFEM_elementTypes, 
      +      SHYFEM_elementConn )
 
-	  call ESMF_MeshWrite(SHYFEM_mesh, "shyfem_mesh", rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +      line=__LINE__,
-     +      file=__FILE__))
-     +      return  ! bail out
-
 	end subroutine
 
         !-----------------------------------------------------------------------------
@@ -759,6 +773,8 @@
           double precision, pointer   :: ptr(:)
           character(20) :: str
           integer :: i, ie, ii
+
+          rc = ESMF_SUCCESS
 
 	  !! We recovet the field with the usual call
           call ESMF_FieldGet(field, localDe=0, farrayPtr=ptr,
@@ -813,7 +829,7 @@
 	  write(1,'(a)') "SCALARS _NODE_NUM double 1"
 	  write(1,'(a)') "LOOKUP_TABLE default"
           do i=1,nkn
-            write(str,'(f6.3)') ptr(i)
+            write(str,'(f11.4)') ptr(i)
             str = trim(adjustl(str))
             do ii = len_trim(str),1,-1
               if (str(ii:ii)/="0") exit
@@ -824,5 +840,39 @@
 	  close(1)
 
         end subroutine
+
+        !-----------------------------------------------------------------------------
+
+        !! Eventually we write the regridded fields to files.
+        !! This can be helpful for debugging and checking the interpolations.
+        !! We can write such a file with ESMF subroutine \textsf{SHYFEM\_FieldWrite}
+        !! but this works only with the third party library PARALLELIO (PIO).
+        !! Moreover the only format allowed when this manual was written was netcdf
+        !! (ugrid). We have preferred to do use vtk format to visualize the data,
+        !! as done with the mesh. This lead to only one type of file outputted.
+        !! Vtk files can be visualize nicely with Paraview.
+        subroutine SHYFEM_FieldSet(fieldPtr, fieldName, rc)
+
+          double precision, pointer, intent(in) :: fieldPtr(:)
+          character(len=*), intent(in)          :: fieldName
+          integer, intent(out)                  :: rc
+
+          rc = ESMF_SUCCESS
+
+	  select case (fieldName)
+	    case ("pmsl")
+	      ppv = fieldPtr
+	    case ("smes")
+	      tauxnv = fieldPtr
+            case ("smns")
+	      tauynv = fieldPtr
+	    case ("rsns")
+	      print *, "WARNING: radiation not done yet"	
+	      !tauxnv = fieldPtr
+	    case default
+	      rc = 0
+	  end select
+
+	end subroutine
 
 	end module
