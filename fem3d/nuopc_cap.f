@@ -36,7 +36,7 @@
 
 	type SHYFEM_Metadata
 	  character(4)                :: fieldName = " "
-          character(40)               :: longName = " "
+          character(50)               :: longName = " "
 	  type(ESMF_MeshLoc)          :: meshloc = ESMF_MESHLOC_NODE
 	end type
 
@@ -160,7 +160,7 @@
 	  !! array. This ordering is beneficial to factorize the code and perform the 
 	  !! many operations of the fields with do loops. You have to keep in mind that, 
 	  !! first we have import fields, and only after we have export fields. 
-	  allocate(SHYFEM_FieldMetadata(5) )
+	  allocate( SHYFEM_FieldMetadata(8) )
 
           !! We have added two macros to rapidly decouple the ocean component from the rest
           !! of the earth system. Disabling both the following macros,
@@ -202,19 +202,37 @@
 #endif
 #ifdef WITHIMPORTFIELDS_HEATFLUX
           numImp = numImp + 1
-
           !! \item net radiation flux $R$.
           SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
      +      fieldName="rsns",
      +      longName="surface_net_downward_shortwave_flux",
      +      meshloc=ESMF_MESHLOC_NODE)
 
+	  numImp = numImp + 1
+          !! \item sensible heat flux $R_{long}$.
+          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
+     +      fieldName="rlns",
+     +      longName="surface_net_downward_longwave_flux",
+     +      meshloc=ESMF_MESHLOC_NODE)
+
+          !! \item sensible heat flux $Q_{sens}$.
+!          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
+!     +      fieldName="stsh",
+!     +      longName="surface_downward_sensible_heat_flux_in_air",
+!     +      meshloc=ESMF_MESHLOC_NODE)
+
+          !! \item sensible heat flux $Q_{lat}$.
+!          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
+!     +      fieldName="stlh",
+!     +      longName="surface_downward_heat_flux_in_air",
+!     +      meshloc=ESMF_MESHLOC_NODE)
 #endif
           SHYFEM_numOfImportFields = numImp
           SHYFEM_numOfExportFields = 1
 
 	  !! \item sea surface salinity.
-	  SHYFEM_FieldMetadata(5) = SHYFEM_Metadata(fieldName="sst",
+	  SHYFEM_FieldMetadata(numImp+1) = SHYFEM_Metadata(
+     +      fieldName="sst",
      +      longName="sea_surface_temperature",
      +      meshloc=ESMF_MESHLOC_NODE)
 
@@ -489,10 +507,14 @@
      +        file=__FILE__))
      +        return  ! bail out
 
-	   print *, fieldPtr
+	    print *, fieldPtr
 
-	   call SHYFEM_FieldSet(fieldPtr,
-     +       SHYFEM_FieldMetadata(var)%fieldName, rc)
+	    call SHYFEM_FieldSet(fieldPtr,
+     +        SHYFEM_FieldMetadata(var)%fieldName, rc)
+            if(ESMF_LogFoundError(rcToCheck=rc,msg=ESMF_LOGERR_PASSTHRU,
+     +        line=__LINE__,
+     +        file=__FILE__))
+     +        return  ! bail out
 
 	  enddo
 
@@ -867,10 +889,13 @@
             case ("smns")
 	      tauynv = fieldPtr
 	    case ("rsns")
-	      print *, "WARNING: radiation not done yet"	
-	      !tauxnv = fieldPtr
+	      metrad = fieldPtr
+            case ("rlns")
+              !metrad = fieldPtr
 	    case default
-	      rc = 0
+              call ESMF_LogWrite("  OCN unknown field name", 
+     +          ESMF_LOGMSG_INFO, rc=rc)
+	      rc = 1
 	  end select
 
 	end subroutine
