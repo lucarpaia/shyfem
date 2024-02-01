@@ -494,7 +494,7 @@ sub subst_meteo {
   subst_common($fortran,"metws","param_dummy.h","meteo_aux.h");
   subst_common($fortran,"metrain","param_dummy.h","meteo_aux.h");
   subst_common($fortran,"ppv","param_dummy.h","meteo_aux.h");
-  subst_common($fortran,"metrad","param_dummy.h","meteo_aux.h");
+  subst_common($fortran,"metswrad","param_dummy.h","meteo_aux.h");
   subst_common($fortran,"methum","param_dummy.h","meteo_aux.h");
   subst_common($fortran,"mettair","param_dummy.h","meteo_aux.h");
   subst_common($fortran,"metcc","param_dummy.h","meteo_aux.h");

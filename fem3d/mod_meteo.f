@@ -31,6 +31,7 @@
 ! 16.02.2019	ggu	changed VERS_7_5_60
 ! 21.05.2019	ggu	changed VERS_7_5_62
 ! 03.06.2022	ggu	specific humidity added
+! 01.02.2024    lrp     esmf coupling
 
 !**************************************************************************
 
@@ -51,7 +52,10 @@ c metrain is read from file in [mm/day] and converted to [m/s]
         real, allocatable, save :: tauxnv(:)	! wind stress in x [N/m**2]
         real, allocatable, save :: tauynv(:)	! wind stress in y [N/m**2]
 
-        real, allocatable, save :: metrad(:)	! downward sw solar rad [W/m**2]
+        real, allocatable, save :: metswrad(:)	! downward sw solar rad [W/m**2]
+        real, allocatable, save :: metlwrad(:)  ! downward lw solar rad [W/m**2]
+        real, allocatable, save :: metlhflx(:)  ! downward latent heat flux [W/m**2]
+        real, allocatable, save :: metshflx(:)  ! downward sensible heat flux [W/m**2]
         real, allocatable, save :: methum(:)	! humidity [%]
         real, allocatable, save :: metdew(:)    ! dew point temperature [C]  
         real, allocatable, save :: mettair(:)	! 10 m air temperature [C]
@@ -82,7 +86,10 @@ c metrain is read from file in [mm/day] and converted to [m/s]
           deallocate(ppv)
           deallocate(tauxnv)
           deallocate(tauynv)
-          deallocate(metrad)
+          deallocate(metswrad)
+          deallocate(metlwrad)
+          deallocate(metshflx)
+          deallocate(metlhflx)
           deallocate(methum)
           deallocate(metdew)  
           deallocate(mettair)
@@ -104,7 +111,10 @@ c metrain is read from file in [mm/day] and converted to [m/s]
         allocate(ppv(nkn))
         allocate(tauxnv(nkn))
         allocate(tauynv(nkn))
-        allocate(metrad(nkn))
+        allocate(metswrad(nkn))
+        allocate(metlwrad(nkn))
+        allocate(metshflx(nkn))
+        allocate(metlhflx(nkn))
         allocate(methum(nkn))
         allocate(metdew(nkn))  
         allocate(mettair(nkn))

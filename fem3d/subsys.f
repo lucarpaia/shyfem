@@ -228,6 +228,7 @@ c 23.04.2021	clr	new parameters petsc_zcfg and amgx_zcfg
 c 15.02.2022	ggu	new parameter iage
 c 15.02.2022	ggu	new parameters for limiting_scalar
 c 20.07.2023    lrp     new parameter nzadapt
+c 01.02.2024    lrp     esmf coupling
 c
 c************************************************************************
 
@@ -718,6 +719,8 @@ c		\item[6] Using the COARE3.0 module
 c		\item[7] Read heat fluxes directly from file. The columns
 c		in the data file must be "time srad qsens qlat qlong".
 c		\item[8] MFS heat fluxes as Pettenuzzo et al., 2010
+c               \item[9] from ESMF coupled model. This flag is set 
+c               automatically if (|iatm|=1).
 c		\end{description}
 c		Except when |iheat| is 7, the time series file has
 c		the columns "time srad airt rhum cc".

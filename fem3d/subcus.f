@@ -4645,7 +4645,7 @@ c*******************************************************************
         call shy_write_scalar_record2d(id,dtime,6,uvmed)
         call shy_write_scalar_record2d(id,dtime,7,uvdir)
         call shy_write_scalar_record2d(id,dtime,12,temp)
-        call shy_write_scalar_record2d(id,dtime,22,metrad)
+        call shy_write_scalar_record2d(id,dtime,22,metswrad)
 
 	end
 

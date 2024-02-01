@@ -37,9 +37,9 @@
         real ppv(nkndim)
         common /ppv/ppv
 
-        real metrad(nkndim),methum(nkndim)
+        real metswrad(nkndim),methum(nkndim)
         real mettair(nkndim),metcc(nkndim)
-        common /metrad/metrad, /methum/methum
+        common /metswrad/metswrad, /methum/methum
         common /mettair/mettair, /metcc/metcc
 
         real metrain(nkndim)
