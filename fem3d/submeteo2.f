@@ -457,7 +457,7 @@ c DOCS  END
 
         if( .not. iff_is_constant(idheat) .or. icall == 1 ) then
           call iff_read_and_interpolate(idheat,dtime)
-          call iff_time_interpolate(idheat,dtime,1,nkn,lmax,metswrad)
+          call iff_time_interpolate(idheat,dtime,1,nkn,lmax,metrad)
           call iff_time_interpolate(idheat,dtime,2,nkn,lmax,mettair)
           call iff_time_interpolate(idheat,dtime,3,nkn,lmax,metaux)
           call iff_time_interpolate(idheat,dtime,4,nkn,lmax,metcc)
@@ -1534,7 +1534,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
         real cc                         !cloud cover [0-1]
         real p                          !atmospheric pressure [mbar, hPa]
 
-	qs = metswrad(k)
+	qs = metrad(k)
 	ta = mettair(k)
 	rh = methum(k)
 	uw = metws(k)
@@ -1633,7 +1633,7 @@ c sets evaporation
         integer k                       !node number
         real qs                         !solar radiation [W/m**2]
 
-	qs = metswrad(k)
+	qs = metrad(k)
 
 	end subroutine meteo_get_solar_radiation
 
@@ -1671,7 +1671,7 @@ c interpolates files spatially - to be deleted
         integer k
 
         do k=1,nkn
-          metswrad(k) = qs
+          metrad(k) = qs
           mettair(k) = ta
           methum(k) = rh
           metws(k) = uw

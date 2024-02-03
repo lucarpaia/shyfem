@@ -95,7 +95,6 @@ c 29.04.2022	ggu	check impossible heat flux values
 c 09.07.2022	ggu	kspecial for special output
 c 05.09.2022	ggu	debug output and use ustar in ice computation
 c 09.05.2023    lrp     introduce top layer index variable
-c 01.02.2024    lrp     esmf coupling
 c
 c notes :
 c
@@ -279,7 +278,6 @@ c iheat		1=areg  2=pom  3=gill  4=dejak  5=gotm
 c		6=COARE 3.0
 c               7=read flux from file
 c		8=MFS routines (Pettenuzzo et al., 2010)
-c	        9=coupling with atmospheric model
 c hdecay	depth of e-folding decay of radiation
 c		0. ->	everything is absorbed in first layer
 c botabs	1. ->	bottom absorbs remaining radiation
@@ -461,12 +459,8 @@ c---------------------------------------------------------
 	    call meteo_get_heat_extra(k,dp,uuw,vvw)
             call heatmfsbulk(days,im,ih,ddlon,ddlat,ta,p,uuw,vvw,dp,
      +                   cc,tm,uub,vvb,qsens,qlat,qlong,evap,qswa,cd)   
-            qss= fice_free*qswa  !albedo (monthly) already in qshort1 -> qswa 
-            if ( bwind ) windcd(k) = cd
-          else if( iheat .eq. 9 ) then
-	    qsens = metshflx(k)
-	    qlat  = metlhflx(k)
-	    qlong = metlwrad(k)
+            qss= fice_free*qswa  !albedo (monthly) already in qshort1 -> qswa  
+            if ( bwind ) windcd(k) = cd   
           else
             write(6,*) 'iheat = ',iheat
             stop 'error stop qflux3d: value for iheat not allowed'

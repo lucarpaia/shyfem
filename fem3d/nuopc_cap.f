@@ -138,7 +138,7 @@
 
 	  ! local variables
 	  type(ESMF_State)        :: importState, exportState
-	  integer                 :: var, num
+	  integer                 :: var, numImp
 
 	  rc = ESMF_SUCCESS
 
@@ -172,15 +172,13 @@
 #define WITHIMPORTFIELDS_MOMENTUMFLUX
 #define WITHIMPORTFIELDS_HEATFLUX
 
-          !! The field list is defined here. You can modify this part adding new fields.
-	  !! The metadata of each field is filled with a simple constructor statement.
-	  !! The constructor is feeded with the field names which should correspond to the
-	  !! the standard ones, for compatibility with the other components, see section 2.2.2 in:
-	  !! \texttt{https://earthsystemmodeling.org/docs/nightly/develop/NUOPC_refdoc/node3.html}
-          !! In the following we describe each field rapidly.
-          num = 0
+          !! The metadata of each field is filled with a simple constructor statement.
+          !! In the following we describe each field rapidly. 
+          numImp = 0
 
 #ifdef WITHIMPORTFIELDS_MOMENTUMFLUX
+          numImp = 3
+
           !! \begin{itemize}
           !! \item atmospheric pressure at sea-level $p_a$ that
           !! act as a forcing term on the momentum equation.
@@ -203,44 +201,40 @@
 
 #endif
 #ifdef WITHIMPORTFIELDS_HEATFLUX
-          num = 3 + 1
+          numImp = numImp + 1
           !! \item net radiation flux $R$.
-          SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
+          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
      +      fieldName="rsns",
      +      longName="surface_net_downward_shortwave_flux",
      +      meshloc=ESMF_MESHLOC_NODE)
 
-	  num = num + 1
+	  numImp = numImp + 1
           !! \item sensible heat flux $R_{long}$.
-          SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
+          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
      +      fieldName="rlns",
      +      longName="surface_net_downward_longwave_flux",
      +      meshloc=ESMF_MESHLOC_NODE)
 
           !! \item sensible heat flux $Q_{sens}$.
-          num = num + 1
-          SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
-     +      fieldName="stsh",
-     +      longName="surface_downward_sensible_heat_flux_in_air",
-     +      meshloc=ESMF_MESHLOC_NODE)
+!          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
+!     +      fieldName="stsh",
+!     +      longName="surface_downward_sensible_heat_flux_in_air",
+!     +      meshloc=ESMF_MESHLOC_NODE)
 
           !! \item sensible heat flux $Q_{lat}$.
-          num = num + 1
-          SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
-     +      fieldName="stlh",
-     +      longName="surface_downward_latent_heat_flux_in_air",
-     +      meshloc=ESMF_MESHLOC_NODE)
+!          SHYFEM_FieldMetadata(numImp) = SHYFEM_Metadata(
+!     +      fieldName="stlh",
+!     +      longName="surface_downward_heat_flux_in_air",
+!     +      meshloc=ESMF_MESHLOC_NODE)
 #endif
-          SHYFEM_numOfImportFields = num
+          SHYFEM_numOfImportFields = numImp
+          SHYFEM_numOfExportFields = 1
 
 	  !! \item sea surface salinity.
-          num = num + 1
-	  SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
+	  SHYFEM_FieldMetadata(numImp+1) = SHYFEM_Metadata(
      +      fieldName="sst",
      +      longName="sea_surface_temperature",
      +      meshloc=ESMF_MESHLOC_NODE)
-
-          SHYFEM_numOfExportFields = num - SHYFEM_numOfImportFields
 
           !! \end{itemize}
 	  !! The with a do loop The following we advertise the import state in the 
@@ -894,14 +888,10 @@
 	      tauxnv = fieldPtr
             case ("smns")
 	      tauynv = fieldPtr
-            case ("stsh")
-              metshflx = fieldPtr
-            case ("stlh")
-              metlhflx = fieldPtr	    
 	    case ("rsns")
-	      metswrad = fieldPtr
+	      metrad = fieldPtr
             case ("rlns")
-              metlwrad = fieldPtr
+              !metrad = fieldPtr
 	    case default
               call ESMF_LogWrite("  OCN unknown field name", 
      +          ESMF_LOGMSG_INFO, rc=rc)

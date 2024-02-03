@@ -2634,7 +2634,7 @@
 	if( ievap .le. 0 ) econv = 0.
 
 	ip = 1
-	call box_2d_aver_scalar(metswrad,val)
+	call box_2d_aver_scalar(metrad,val)
 	call boxes_2d_accum(nbox,dt,barea,valmet(:,ip),val)
 
 	ip = 2
