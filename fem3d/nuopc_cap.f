@@ -447,7 +447,7 @@
 	  integer, intent(out) :: rc
 
   	  !! In the ESMF vocabulary the import state are atmosphere-ocean
-	  !! fluxes $F_{oa}$, the export state is the oceanic state at the 
+	  !! fluxes $F_{oa}$, the export state is the oceanic state at the
 	  !! first layer $U_{o,1}$.
 	  ! local variables
 	  type(ESMF_Clock)            :: clock
@@ -455,12 +455,15 @@
 	  type(ESMF_Time)             :: currTime
 	  type(ESMF_TimeInterval)     :: timeStep
 	  character(len=160)          :: msgString
+          character(len=160)          :: dateString
           double precision            :: timeStepSec
 
-	  ! local variables 
 	  type(ESMF_Field)            :: field
 	  double precision, pointer   :: fieldPtr(:)
 	  integer                     :: var
+	  integer                     :: currYear, currMonth, currDay,
+     +                                   currHour, currMinute,
+     +                                   currSecond
 
 #define NUOPC_TRACE__OFF
 #ifdef NUOPC_TRACE
@@ -469,23 +472,68 @@
 
 	  rc = ESMF_SUCCESS
 
-	  !! The various objects are nested. We access the fields with three
-	  !! consecutive \textsf{Get} command. We start accessing the most
-	  !! exterior component, namely the model. We query for three
-	  !! objects: the \textsf{clock}, the \textsf{importState} 
-	  !! and \textsf{exportState}.
-	  call NUOPC_ModelGet(model, modelClock=clock,
+          !! The various objects are nested. We access the fields with three
+          !! consecutive \textsf{Get} command. We start accessing the most
+          !! exterior component, namely the model. We query for three
+          !! objects: the \textsf{clock}, the \textsf{importState} 
+          !! and \textsf{exportState}.
+          call NUOPC_ModelGet(model, modelClock=clock,
      +      importState=importState, exportState=exportState, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+          !! Before cascading from the model to the fields, we
+	  !! access to the clock object. We do it in different ways: here we
+          !! output the current time to the log file:
+          call ESMF_ClockPrint(clock, options="currTime",
+     +	    preString="------>Advancing OCN from: ",unit=msgString,rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+          call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+          !! We retrieve two important members of the clock object,
+          !! the \textsf{currTime} object and the \textsf{timeStep} object
+          call ESMF_ClockGet(clock, currTime=currTime,
+     +      timeStep=timeStep, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+          !! SHYFEM advance of one time step $\Delta t_{ao}$, we need
+          !! to access this information. From the \textsf{timeStep}
+          !! object we query for the time step. The argument
+          !! \textsf{s\_r8} tells to return it in second with double
+          !! precision, which is the correct format for time variables
+          !! in SHYFEM.
+          call ESMF_TimeIntervalGet(timeStep, s_r8=timeStepSec, rc=rc)
+
+	  !! To name the output fields with the name composed of the
+	  !! date, we also write retrieve the current date. and we 
+	  !! save it into a string
+	  call ESMF_TimeGet(currTime, yy=currYear, mm=currMonth,
+     +       dd=currDay, h=currHour, m=currMinute, s=currSecond, rc=rc) 
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+	  write(dateString, "(I4,I2.2,I2.2,I2.2,I2.2,I2.2)") currYear,
+     +      currMonth, currDay, currHour, currMinute, currSecond
 
 	  !! With a little bit of paranoia we print the import state object
 	  !! (this needs to be removed or added only in a debug mode):
 	  call ESMF_StatePrint(importState, rc=rc)
 
-	  !! From the component, we retrieve the state and from the state
+	  !! Finally from the component, we retrieve the state and from the state
 	  !! we retreive the field. The field data is typically a large array 
 	  !! stored in memory, we use a pointer to it. Field can be written to a file.
 	  !! Finally, after all these \textsf{Get} commands, a \textsf{Set} commands
@@ -507,7 +555,8 @@
      +	      return  ! bail out
 
 	    call SHYFEM_FieldWrite(field, 
-     +      trim(SHYFEM_FieldMetadata(var)%fieldName)//trim(".vtk"), rc)
+     +        trim(SHYFEM_FieldMetadata(var)%fieldName)
+     +        //trim(dateString)//trim(".vtk"), rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +        line=__LINE__,
      +        file=__FILE__))
@@ -526,39 +575,10 @@
 
 	  !! The first task is completed. We move to the second one:
 	  !! advancing the model of one timestep.
-	  !! We access to the clock object in different ways: here we
-	  !! output the current time to the log file:
-     	  call ESMF_ClockPrint(clock, options="currTime",
-     +	    preString="------>Advancing OCN from: ",unit=msgString,rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-	  call ESMF_LogWrite(msgString, ESMF_LOGMSG_INFO, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-
-          !! Later we retrieve two important members of the clock object,
-	  !! the \textsf{currTime} object and the \textsf{timeStep} object
-	  call ESMF_ClockGet(clock, currTime=currTime,
-     +      timeStep=timeStep, rc=rc)
-	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +	    line=__LINE__,
-     +	    file=__FILE__))
-     +	    return  ! bail out
-
-	  !! SHYFEM advance of one time step $\Delta t_{ao}$, we need
-	  !! to access this information. From the \textsf{timeStep} 
-	  !! object we query for the time step. The argument  
-	  !! \textsf{s\_r8} tells to return it in second with double 
-	  !! precision, which is the correct format for time variables 
-          !! in SHYFEM.
-	  call ESMF_TimeIntervalGet(timeStep, s_r8=timeStepSec, rc=rc)
-
           !! This is the call to the SHYFEM subroutine that timesteps
           !! the ocean variables for one ocean-atmosphere timestep.
+	  !! If everything goes well we print to the PET a message
+	  !! saying that the ocean timestep has been completed
 	  call shyfem_run(timeStepSec)
 
 	  call ESMF_TimePrint(currTime + timeStep,
