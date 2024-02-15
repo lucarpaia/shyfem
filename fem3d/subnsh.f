@@ -498,6 +498,8 @@ c read loop over sections %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                         call readsed
                 else if(section.eq.'waves')then         !wave
                         call nrdins(section)
+                else if(section.eq.'atm')then           !atmosphere
+                        call nrdins(section)
                 else if(section.eq.'mudsec')then        !fluid mud
                         call readmud			!ARON
                 else if(section.eq.'nonhyd')then        !NH model

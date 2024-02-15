@@ -251,6 +251,7 @@ c save
 	integer, save :: iheat
 	integer, save :: isolp  
 	integer, save :: iwtyp
+	integer, save :: iatm
 	real, save :: hdecay
 	real, save :: botabs
 
@@ -264,6 +265,7 @@ c save
 	logical, save :: bwind = .false.
 	logical, save :: bice = .false.
 	logical, save :: bheat = .false.
+	logical, save :: batm = .false.
 	logical, save :: bqflux = .false.
 
 c---------------------------------------------------------
@@ -297,18 +299,21 @@ c---------------------------------------------------------
 	  iheat = nint(getpar('iheat'))
           isolp = nint(getpar('isolp'))   
 	  iwtyp  = nint(getpar('iwtyp'))+1
+	  iatm = nint(getpar('iatm'))
 	  hdecay = getpar('hdecay')
 	  botabs = getpar('botabs')
 
 	  call shyice_init
 	  call shyice_is_active(bice)		!ice model is active
 	  bheat = iheat > 0			!we have to compute heat fluxes
+	  batm = iatm > 0			!have ocean-atmosphere coupling
 	  call qflux_compute(bqflux)		!have qflux file
 
-	  if( .not. bqflux ) icall = -1
-	  if( .not. bheat .and. .not. bice ) icall = -1
-	  if( icall < 0 ) return
-
+	  if( .not. bqflux .and. .not. batm) icall = -1
+	  if( .not. bheat .and. .not. bice) icall = -1
+	  if( icall < 0 ) return	!some consistency checks: exit if we have not found any meteo files,
+					!if no coupling with the atmosphere is active, if heat fluxes are not active
+					!or if the icemodel is not active. In the above cases heat fluxes are not set.
 !$OMP CRITICAL
 	  write(6,*) 'qflux3d routines are active'
 	  write(6,*) 'qflux3d: bqflux,bheat,bice: '

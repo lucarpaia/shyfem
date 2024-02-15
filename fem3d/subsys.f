@@ -246,6 +246,7 @@ c initializes the parameter file for the main FE model
 	call nlsinh_georg
 	call nlsinh_unused
 	call nlsinh_waves
+        call nlsinh_atm
 	call nlsinh_nonhydro
 	call nlsinh_connect
 
@@ -1730,6 +1731,37 @@ c			wave height, wave period, mean wave direction).
 
         call addpar('idtwav',0.)
         call addpar('itmwav',-1.)
+
+c
+c DOCS  END
+c
+
+        end
+
+c************************************************************************
+
+c This subroutine defines the simulation wave parameter
+
+        subroutine nlsinh_atm
+
+c $atm section
+
+c DOCS  START   P_atm
+c
+c Parameters in section |$atm| activate the ocean-atmosphere coupling.
+
+        implicit none
+
+        call sctpar('atm')           !sets default section
+        call sctfnm('atm')
+
+c |iatm|	Type of ocean-atmosphere coupling (default 0):
+c		\begin{description}
+c		\item[0] No coupling. SHYFEM runs standalone.
+c		\item[1] SHYFEM runs coupled with an atmospheric model within the ESMF framwork.
+c		\end{description}
+
+        call addpar('iatm',0.)        ! 0=SHYFEM standalone  1=coupled
 
 c
 c DOCS  END
