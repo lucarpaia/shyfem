@@ -53,7 +53,7 @@ FEMDIR = ..
 FEMBIN = $(FEMDIR)/fembin
 DIRLIB = $(FEMDIR)/femlib
 F77    = gfortran
-FFLAGS =  -O
+FFLAGS = -O
 LINKER = $(F77)
 #------------------------------------------------------------
 
@@ -119,12 +119,12 @@ endif
 # ESMF-NUOPC files
 #------------------------------------------------------------
 
-NUOPC          = true
 DIRBASE_ESMF   = $(ESMFDIR)
-DIRLIB_ESMF    = $(DIRBASE_ESMF)/lib/libO/Linux.gfortran.64.mpiuni.default
+#DIRLIB_ESMF    = $(DIRBASE_ESMF)/lib/libO/Linux.gfortran.64.mpiuni.default
+DIRLIB_ESMF    = $(DIRBASE_ESMF)/lib/libO/Linux.gfortran.64.openmpi.default
 ESMF_MKFILE    = $(DIRLIB_ESMF)/esmf.mk
 NUOPCMOD       = ocean_shyfem
-NUOPC_OBJ      = nuopc_cap.o
+NUOPC_OBJ      = nuopc_shyfem_cap.o
 
 ifeq ($(NUOPC),true)
 ifneq ("$(wildcard $(ESMF_MKFILE))","")
@@ -1104,9 +1104,12 @@ nuopc_info:
 	@echo "esmf link options    : $(ESMF_F90LINKOPTS)"
 
 nuopc_copy:
-	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/esmf.mod $(FEMDIR)/lib/mod 
-	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc.mod $(FEMDIR)/lib/mod
-	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc_model.mod $(FEMDIR)/lib/mod
+	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.openmpi.default/esmf.mod $(FEMDIR)/lib/mod 
+	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.openmpi.default/nuopc.mod $(FEMDIR)/lib/mod
+	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.openmpi.default/nuopc_model.mod $(FEMDIR)/lib/mod
+#	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/esmf.mod $(FEMDIR)/lib/mod 
+#	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc.mod $(FEMDIR)/lib/mod
+#	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc_model.mod $(FEMDIR)/lib/mod
 
 nuopc_clean:
 	-rm -f *.mk
@@ -1117,16 +1120,16 @@ nuopc_shyfem.mk:
 	@echo "creating nuopc makefile fragment"
 	@echo "# ESMF self-describing build dependency makefile fragment for SHYFEM model" > $@
 	@echo >> $@
-	@echo "ESMF_DEP_FRONT     = "$(NUOPCMOD)                  >> $@
-	@echo "ESMF_DEP_INCPATH   = `pwd`"                        >> $@
-	@echo "ESMF_DEP_CMPL_OBJS = `pwd`/"$(NUOPC_OBJ)           >> $@
-	@echo "ESMF_DEP_LINK_OBJS = `pwd`/"$(LIBFNUOPC)           >> $@
-	@echo "ESMF_DEP_SHRD_PATH = `pwd`/"$(DIRLIB)              >> $@
-	@echo "ESMF_DEP_SHRD_LIBS = "$(LIBGOTM) $(LIBFEM)         >> $@
+	@echo "SHYFEM_DEP_FRONT     = "$(NUOPCMOD)                  >> $@
+	@echo "SHYFEM_DEP_INCPATH   = `pwd`"                        >> $@
+	@echo "SHYFEM_DEP_CMPL_OBJS = `pwd`/"$(NUOPC_OBJ)           >> $@
+	@echo "SHYFEM_DEP_LINK_OBJS = `pwd`/"$(LIBFNUOPC)           >> $@
+	@echo "SHYFEM_DEP_SHRD_PATH = `pwd`/"$(DIRLIB)              >> $@
+	@echo "SHYFEM_DEP_SHRD_LIBS = "$(LIBGOTM) $(LIBFEM)         >> $@
 
 libnuopc: nuopc_copy $(LIBFNUOPC)
 
-$(LIBFNUOPC): nuopc_cap.o shyfem_subs.o $(NEWOBJS) $(HTOBJS)
+$(LIBFNUOPC): nuopc_shyfem_cap.o shyfem_subs.o $(NEWOBJS) $(HTOBJS)
 	@echo "creating static library with shyfem and nuopc cap layer" 
 	ar rvs $(LIBFNUOPC) $?
 
@@ -2436,4 +2439,4 @@ weutro_shell.o: donata.h
 weutro_ulva.o: donata.h
 weutro_wdia.o: ../femlib/mod/eutro.mod weutro.h
 zadaptutil.o: ../femlib/mod/basin.mod ../femlib/mod/levels.mod
-nuopc_cap.o: ../femlib/mod/mod_shyfem.mod
+nuopc_shyfem_cap.o: ../femlib/mod/mod_shyfem.mod

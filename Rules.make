@@ -465,6 +465,13 @@ ifeq ($(ECOLOGICAL),BFM)
   endif
 endif
 
+ifeq ($(NUOPC),true)
+  ifneq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
+    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
+    RULES_MAKE_MESSAGE = "ESMF-NUOPC coupled model works only with Fortran compiler"
+  endif
+endif
+
 ifneq ($(PARALLEL_MPI),NONE)
   ifeq ($(PARALLEL_OMP),true)
     RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
@@ -668,6 +675,12 @@ ifeq ($(BOUNDS),true)
   FGNU_BOUNDS = -fcheck=all
 endif
 
+# in NUOPC mode, WRF accesses unformatted binary in big-endian format
+FGNU_BIG =
+ifeq ($(NUOPC),true)
+  FGNU_BIG = -fconvert=big-endian
+endif
+
 FGNU_NOOPT = 
 ifeq ($(DEBUG),true)
   TRAP_LIST = zero,invalid,overflow,underflow,denormal
@@ -716,8 +729,8 @@ ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
   F77		= $(FGNU)
   F95		= $(FGNU95)
   LINKER	= $(F77)
-  LFLAGS	= $(FGNU_OPT) $(FGNU_PROFILE) $(FGNU_OMP)
-  FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING) $(FGNU_GENERAL)
+  LFLAGS	= $(FGNU_OPT) $(FGNU_PROFILE) $(FGNU_OMP) $(FGNU_BIG)
+  FFLAGS	= $(LFLAGS) $(FGNU_NOOPT) $(FGNU_WARNING) $(FGNU_GENERAL) $(FGNU_BIG)
   FFLAG_SPECIAL	= $(LFLAGS) $(FGNU_WARNING) $(FGNU_GENERAL)
   FINFOFLAGS	= --version
 endif

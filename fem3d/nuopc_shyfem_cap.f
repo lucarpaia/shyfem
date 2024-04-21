@@ -12,7 +12,20 @@
 	!!
 	!! We are cascading into the objects hierarchy. We miss the last step: we need
 	!! to specify the methods for the children object. Here we do this for the 
-	!! ocean model object. The ocean component is coded into a Fortran module.
+        !! ocean model object.  The ocean component also has preprocessors for fine tuning.
+	!! We have added the following preprocessor to selectively decouple the 
+        !! ocean component from the rest of the earth system. Disabling all 
+	!! the following macros, will result in an ocean component that does not 
+	!! advertise any importable/exportable Field. Use should you this only if you
+	!! want to drive the model independently.
+        !! You could also couples the ocean component only through
+	!! momentum or heat flux or sst only. This may be useful for
+	!! debugging and testing for example. In general, all the macros must be defined.
+#define WITHFIELDS_MOMENTUMFLUX
+#define WITHFIELDS_HEATFLUX
+#define WITHFIELDS_SST
+
+	!! The ocean component is coded into a Fortran module.
         module ocean_shyfem
 
 	!! We call the modules of the libraries. First the SHYFEM library:
@@ -133,6 +146,7 @@
 	!! will accept pointers to pre-allocated memory, it is usually not necessary to 
 	!! change how memory is allocated for your model's variables. 
 	subroutine Advertise(model, rc)
+
 	  type(ESMF_GridComp)  :: model
 	  integer, intent(out) :: rc
 
@@ -162,28 +176,21 @@
 	  !! first we have import fields, and only after we have export fields. 
 	  allocate( SHYFEM_FieldMetadata(8) )
 
-          !! We have added two macros to rapidly decouple the ocean component from the rest
-          !! of the earth system. Disabling both the following macros,
-          !! will result in an ocean component that does not advertise any importable
-          !! Fields. Use should you this only if you want to drive the model independently.
-          !! You could also couples the ocean component through momentum or heat flux. 
-          !! This may be useful for debugging, for exmaple. In general, both the macros must
-          !! be defined.
-#define WITHIMPORTFIELDS_MOMENTUMFLUX
-#define WITHIMPORTFIELDS_HEATFLUX
-
           !! The field list is defined here. You can modify this part adding new fields.
 	  !! The metadata of each field is filled with a simple constructor statement.
 	  !! The constructor is feeded with the field names which should correspond to the
 	  !! the standard ones, for compatibility with the other components, see section 2.2.2 in:
-	  !! \texttt{https://earthsystemmodeling.org/docs/nightly/develop/NUOPC_refdoc/node3.html}
-          !! In the following we describe each field rapidly.
+	  !!
+	  !! \texttt{https://earthsystemmodeling.org/docs/nightly/develop/NUOPC\_refdoc/node3.html}
+	  !!
+	  !! In the following we describe each field rapidly.
           num = 0
 
-#ifdef WITHIMPORTFIELDS_MOMENTUMFLUX
+#ifdef WITHFIELDS_MOMENTUMFLUX
           !! \begin{itemize}
           !! \item atmospheric pressure at sea-level $p_a$ that
           !! act as a forcing term on the momentum equation.
+          num = num + 1	  
           SHYFEM_FieldMetadata(1) = SHYFEM_Metadata(fieldName="pmsl",
      +      longName="air_pressure_at_sea_level",
      +      meshloc=ESMF_MESHLOC_NODE)
@@ -193,25 +200,27 @@
           !! and temperature (heat flux). These fluxes are typically computed by the
           !! the atmospheric component with the aid of bulk formulae.
           !! For now we have added only momentum flux that has two components.
+          num = num + 1	  
           SHYFEM_FieldMetadata(2) = SHYFEM_Metadata(fieldName="smes",
      +      longName="surface_downward_eastward_stress",
      +      meshloc=ESMF_MESHLOC_NODE)
 
+          num = num + 1	  
           SHYFEM_FieldMetadata(3) = SHYFEM_Metadata(fieldName="smns",
      +      longName="surface_downward_northward_stress",
      +      meshloc=ESMF_MESHLOC_NODE)
 
 #endif
-#ifdef WITHIMPORTFIELDS_HEATFLUX
-          num = 3 + 1
-          !! \item net radiation flux $R$.
+#ifdef WITHFIELDS_HEATFLUX
+	  !! \item downward-short-wave-radiation flux $R_{sw}$.
+          num = num + 1	  
           SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
      +      fieldName="rsns",
      +      longName="surface_net_downward_shortwave_flux",
      +      meshloc=ESMF_MESHLOC_NODE)
 
-	  num = num + 1
-          !! \item sensible heat flux $R_{long}$.
+	  !! \item downward-long-wave-radiation flux $R_{lw}$.
+          num = num + 1
           SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
      +      fieldName="rlns",
      +      longName="surface_net_downward_longwave_flux",
@@ -232,18 +241,19 @@
      +      meshloc=ESMF_MESHLOC_NODE)
 #endif
           SHYFEM_numOfImportFields = num
-
+#ifdef WITHFIELDS_SST
 	  !! \item sea surface salinity.
           num = num + 1
 	  SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
      +      fieldName="sst",
      +      longName="sea_surface_temperature",
      +      meshloc=ESMF_MESHLOC_NODE)
-
+#endif
           SHYFEM_numOfExportFields = num - SHYFEM_numOfImportFields
 
           !! \end{itemize}
-	  !! The with a do loop The following we advertise the import state in the 
+
+	  !! With a do loop we advertise the import state in the 
 	  !! ocean component.
 	  do var=1,SHYFEM_numOfImportFields
 
@@ -291,9 +301,8 @@
 	  type(ESMF_State)        :: importState, exportState
 	  type(ESMF_TimeInterval) :: stabilityTimeStep
 	  type(ESMF_Field)        :: field
-!	  type(ESMF_Grid)         :: gridIn
-!	  type(ESMF_Grid)         :: gridOut
           type(ESMF_Mesh)         :: meshIn
+	  double precision, pointer :: fieldPtr(:)
 	  integer                 :: var
 
 	  rc = ESMF_SUCCESS
@@ -315,18 +324,6 @@
 	  !! \textsf{SHYFEM\_MeshGet} the mesh is imported into a \textsf{ESMF\_Mesh} 
 	  !! object and later we also write into vtk file to check that evreything is ok.
 	  !! Vtk files can be opened with Paraview.
-!	  gridIn = ESMF_GridCreateNoPeriDimUfrm(maxIndex=(/10, 10/),
-!     +	minCornerCoord=(/-5._ESMF_KIND_R8, -5._ESMF_KIND_R8/),
-!     +	maxCornerCoord=(/5._ESMF_KIND_R8, 5._ESMF_KIND_R8/),
-!     +	    coordSys=ESMF_COORDSYS_CART, 
-!     +      staggerLocList=(/ESMF_STAGGERLOC_CENTER/),
-!     +	    rc=rc)
-!	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-!     +	    line=__LINE__,
-!     +	    file=__FILE__))
-!     +	    return  ! bail out
-!	  gridOut = gridIn ! for now out same as in
-
           call SHYFEM_MeshGet(meshIn, rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
@@ -411,8 +408,25 @@
 	    call NUOPC_Realize(exportState, field=field, rc=rc)
 	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +	      line=__LINE__,
-     +       file=__FILE__))
-     +       return  ! bail out
+     +        file=__FILE__))
+     +        return  ! bail out
+
+            !! The model has not been initialized. This is dangerous becouse at the
+            !! first timestep the ocean model would run with uninitialized fluxes.
+            !! With the following commands we initialize the atmospheric component.
+            !! We retrieve the field pointer with \textsf{ESMF\_FieldGet}. We allocate the
+            !! arrays in \textsf{toy\_initialize}, we initialize them in \textsf{toy\_run}
+            !! giving a zero time. Finally the \textsf{WRF\_FieldSet} command
+            !! copy the field pointer to the WRF flux variables.
+            call ESMF_FieldGet(field, localDe=0, farrayPtr=fieldPtr,
+     +         rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +        line=__LINE__,
+     +        file=__FILE__))
+     +        return  ! bail out
+
+            call SHYFEM_FieldGet(fieldPtr,
+     +        SHYFEM_FieldMetadata(var)%fieldName, rc)
 
 	  enddo
 
@@ -463,7 +477,9 @@
 	  integer                     :: var
 	  integer                     :: currYear, currMonth, currDay,
      +                                   currHour, currMinute,
-     +                                   currSecond
+     +                                   currSecond, currTimeSec
+	  real, external              :: getpar	  
+	  integer                     :: idtatm
 
 #define NUOPC_TRACE__OFF
 #ifdef NUOPC_TRACE
@@ -516,27 +532,36 @@
           !! in SHYFEM.
           call ESMF_TimeIntervalGet(timeStep, s_r8=timeStepSec, rc=rc)
 
-	  !! To name the output fields with the name composed of the
-	  !! date, we also write retrieve the current date. and we 
-	  !! save it into a string
+	  !! To write the output fields we also write retrieve the current date in two
+	  !! differen unit. One is used to name the output file in an
+	  !! ordered fashion. The second one is to check if the current
+	  !! date in seconds correspond to an output tick. In that case
+	  !! we write the fields to file. 
 	  call ESMF_TimeGet(currTime, yy=currYear, mm=currMonth,
      +       dd=currDay, h=currHour, m=currMinute, s=currSecond, rc=rc) 
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
      +      file=__FILE__))
      +      return  ! bail out
-
-	  write(dateString, "(I4,I2.2,I2.2,I2.2,I2.2,I2.2)") currYear,
+          call ESMF_TimeGet(currTime, yy=currYear, s=currTimeSec, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+	  write(dateString, "(I4,'-',I2.2,'-',I2.2,
+     +      '_',I2.2,':',I2.2,':',I2.2)") currYear,
      +      currMonth, currDay, currHour, currMinute, currSecond
+	  idtatm = nint( max(getpar('idtatm'), timeStepSec ))
 
 	  !! With a little bit of paranoia we print the import state object
 	  !! (this needs to be removed or added only in a debug mode):
-	  call ESMF_StatePrint(importState, rc=rc)
+	  !call ESMF_StatePrint(importState, rc=rc)
 
 	  !! Finally from the component, we retrieve the state and from the state
 	  !! we retreive the field. The field data is typically a large array 
 	  !! stored in memory, we use a pointer to it. Field can be written to a file.
-	  !! Finally, after all these \textsf{Get} commands, a \textsf{Set} commands
+	  !! with a  given frequency \textsf{idtatm}. Finally, after all these 
+	  !! \textsf{Get} commands, a \textsf{Set} commands
 	  !! copy the field pointer to the SHYFEM flux variables.
 	  do var=1,SHYFEM_numOfImportFields
 
@@ -554,15 +579,16 @@
      +	      file=__FILE__))
      +	      return  ! bail out
 
-	    call SHYFEM_FieldWrite(field, 
-     +        trim(SHYFEM_FieldMetadata(var)%fieldName)
-     +        //trim(dateString)//trim(".vtk"), rc)
-          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
-     +        line=__LINE__,
-     +        file=__FILE__))
-     +        return  ! bail out
-
-	    print *, fieldPtr
+	    if ( currTimeSec>0. .and. mod(currTimeSec,idtatm).lt.1 ) then
+	      call SHYFEM_FieldWrite(field, 
+     +		trim(SHYFEM_FieldMetadata(var)%fieldName)//trim(dateString)
+     +          //trim(".vtk"), rc)
+	      if(ESMF_LogFoundError(rcToCheck=rc,msg=ESMF_LOGERR_PASSTHRU,
+     +          line=__LINE__,
+     +          file=__FILE__))
+     +          return  ! bail out
+	      !print *, fieldPtr !lrp: debug
+	    endif
 
 	    call SHYFEM_FieldSet(fieldPtr,
      +        SHYFEM_FieldMetadata(var)%fieldName, rc)
@@ -579,6 +605,11 @@
           !! the ocean variables for one ocean-atmosphere timestep.
 	  !! If everything goes well we print to the PET a message
 	  !! saying that the ocean timestep has been completed
+          print * 
+          print *,'shyfem_component_run: start nuopc timestep at date ',
+     +      TRIM(dateString)
+          print *
+
 	  call shyfem_run(timeStepSec)
 
 	  call ESMF_TimePrint(currTime + timeStep,
@@ -592,6 +623,38 @@
      +	    line=__LINE__,
      +	    file=__FILE__))
      +	    return  ! bail out
+
+          !! The export state must be updated. A loop on the export fields is performed. 
+          !! We can retrieve what is needed from the export state.
+          !! To say that we want to retrieve a field item (of \textsf{ESMF\_Field} type) we 
+          !! add the keyworld \textsf{field}. With \textsf{itemName} we choose
+          !! the specific field among the ones that we have created. The next step is to run
+          !! the toy model, that is we simply re-evaluate at the new time the arrays of fluxes. The
+          !! fields are then assigned to the updated arrays:
+          do var=SHYFEM_numOfImportFields+1,
+     +      SHYFEM_numOfImportFields+SHYFEM_numOfExportFields
+
+            call ESMF_StateGet(exportState, field=field,
+     +        itemName=SHYFEM_FieldMetadata(var)%fieldName, rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +        line=__LINE__,
+     +        file=__FILE__))
+     +        return  ! bail out
+
+            call ESMF_FieldGet(field, localDe=0, farrayPtr=fieldPtr,
+     +        rc=rc)
+	    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +        line=__LINE__,
+     +        file=__FILE__))
+     +        return  ! bail out
+
+            call SHYFEM_FieldGet(fieldPtr,
+     +        SHYFEM_FieldMetadata(var)%fieldName, rc)
+ 
+            !print *, "OCN: ", fieldPtr !lrp: debug
+ 
+          enddo
+
 
 #ifdef NUOPC_TRACE
 	  call ESMF_TraceRegionExit("OCN:Advance")
@@ -686,7 +749,8 @@
 
 	  !! First note the type \textsf{ESMF\_Mesh} which defines an unstructured grid
 	  !! object. Other global and local properties of the mesh follows: 
-          integer                         :: SHYFEM_spatialDim = 2
+	  type(ESMF_CoordSys_Flag)        :: SHYFEM_coordSys
+	  integer                         :: SHYFEM_spatialDim = 2
 	  integer                         :: SHYFEM_numberOfNodes
 	  integer                         :: SHYFEM_numberOfElements
 	  integer, allocatable            :: SHYFEM_nodeIds(:)
@@ -696,7 +760,8 @@
 	  integer, allocatable            :: SHYFEM_elementTypes(:)
 	  integer, allocatable            :: SHYFEM_elementConn(:)
 
-	  integer :: i, ie
+	  integer                         :: i, ie
+          real, external                  :: getpar
 
 	  rc = ESMF_SUCCESS
 
@@ -778,12 +843,23 @@
 	    enddo
           enddo
 
+          !! The coordinate system is asked to the SHYFEM configuration file. Please
+          !! note that the user must assure that a single coordinate system
+          !! among all the the components. Two choice are possible in SHYFEM :
+          !! \texttt{isphe=1} stands for spherical (in degrees) or 
+	  !! \texttt{isphe=0} stands for cartesian. Please check the SHYFEM manual
+	  !! for the details.
+	  if ( nint(getpar('isphe')) == 1) then
+	    SHYFEM_coordSys = ESMF_COORDSYS_SPH_DEG
+	  else
+            SHYFEM_coordSys = ESMF_COORDSYS_CART
+	  endif	    
 	  !! Once we have collected the mesh properties in the correct form, 
 	  !! a final call create the mesh object at once. We also print to
 	  !! file in vtk format, that can be visualize with Paraview.
 	  SHYFEM_mesh = ESMF_MeshCreate(parametricDim=SHYFEM_spatialDim,
      +      spatialDim=SHYFEM_spatialDim,
-     +      coordSys=ESMF_COORDSYS_CART,
+     +      coordSys=SHYFEM_coordSys,
      +      nodeIds=SHYFEM_nodeIds, nodeCoords=SHYFEM_nodeCoords,
      +      nodeOwners=SHYFEM_nodeOwners, elementIds=SHYFEM_elementIds,
      +      elementTypes=SHYFEM_elementTypes, 
@@ -846,14 +922,14 @@
 	  write(1,'(a)', advance='no') "POINTS ";
 	  write(1, *) nkn, " double"
 	  do i=1,nkn
-            write(str,'(f6.3)') xgv(i)
+            write(str,'(f11.3)') xgv(i)
 	    str = trim(adjustl(str))
 	    do ii = len_trim(str),1,-1
 	      if (str(ii:ii)/="0") exit
 	    enddo
             if (str(ii:ii)==".") ii=ii-1
 	    write(1,'(aX)', advance="no") str(1:ii)
-            write(str,'(f6.3)') ygv(i)
+            write(str,'(f11.3)') ygv(i)
             str = trim(adjustl(str))
             do ii = len_trim(str),1,-1
               if (str(ii:ii)/="0") exit
@@ -891,14 +967,40 @@
 
         !-----------------------------------------------------------------------------
 
-        !! Eventually we write the regridded fields to files.
-        !! This can be helpful for debugging and checking the interpolations.
-        !! We can write such a file with ESMF subroutine \textsf{SHYFEM\_FieldWrite}
-        !! but this works only with the third party library PARALLELIO (PIO).
-        !! Moreover the only format allowed when this manual was written was netcdf
-        !! (ugrid). We have preferred to do use vtk format to visualize the data,
-        !! as done with the mesh. This lead to only one type of file outputted.
-        !! Vtk files can be visualize nicely with Paraview.
+	!! At the end of the cap layer, we come to the most important
+	!! part. Where we update SHYFEM global variables copying them
+	!! to the pointer value. From now on, the variable are
+	!! syncronyzed with the atmospheric model. The right-hand-side
+	!! of the expression is the SHYFEM variable name. SHYFEM in fact
+	!! store as global variable the following variables:
+	!! \begin{itemize}
+	!! \item \textsf{ppv} the atmospheric pressure, in $[Pa]$
+	!! \item \textsf{wxv} and \textsf{wyv} are the 10m wind
+	!! components, in $[m/s]$
+	!! \item \textsf{mettair} is the air temperature, in $[C]$
+	!! \item \textsf{methum} is the air humidity $[0-1]$
+	!! \item \textsf{metrad} is incoming short-wave-radiation
+	!! $[W/m^2]$
+	!! \item \textsf{metcc} is the cloud cover $[0-1]$
+	!! \end{itemize}
+	!! The name of the variable can be confusing. In fact depending on the 
+	!! parametrizations SHYFEM can take as input also
+	!! the wind stress and fluxes. In this
+	!! case, these are stored in the same variables which must be
+	!! intended as:
+        !! \begin{itemize}      
+        !! \item \textsf{ppv} the atmospheric pressure, in $[Pa]$
+        !! \item \textsf{wxv} and \textsf{wyv} are the 10m wind
+        !! stress components, in $[N/m^2]$ 
+        !! \item \textsf{mettair} is the upward sensible heat flux $Q_{sens} $in $[W/m^2]$
+        !! \item \textsf{methum} is the upward latent heat flux $Q_{lat} in $ $[W/m^2]$
+	!! \item \textsf{metrad} is downward short-wave-radiation $R_{sw}$
+	!! in $[W/m^2]$
+        !! \item \textsf{metcc} is outgoing (upward) long-wave-radiation $[W/m^2]$
+        !! \end{itemize}
+	!! Also the sign should not be surprising: SHYFEM reverts the
+	!! signs of all upward flux internally (positive if downward,
+	!! negative if upward).
         subroutine SHYFEM_FieldSet(fieldPtr, fieldName, rc)
 
           double precision, pointer, intent(in) :: fieldPtr(:)
@@ -911,9 +1013,9 @@
 	    case ("pmsl")
 	      ppv = fieldPtr
 	    case ("smes")
-	      tauxnv = fieldPtr
+	      wxv = fieldPtr
             case ("smns")
-	      tauynv = fieldPtr
+	      wyv = fieldPtr
             case ("stsh")
               mettair = fieldPtr
             case ("stlh")
@@ -925,9 +1027,39 @@
 	    case default
               call ESMF_LogWrite("  OCN unknown field name", 
      +          ESMF_LOGMSG_INFO, rc=rc)
-	      rc = 1
+	     rc = 1
 	  end select
 
 	end subroutine
+
+	!-----------------------------------------------------------------------------
+
+        !! Next we syncronise the variable to be exported. At the
+	!! opposite of the set routine, here we "get" the SHYFEM variable
+        !! to be exported in order to pass them to the export state. 
+	!! Here a list of such variables that are global
+	!! in SHYFEM:
+        !! \begin{itemize}
+        !! \item \textsf{tempv} the sea temperature, in $[C]$
+        !! \end{itemize}
+        subroutine SHYFEM_FieldGet(fieldPtr, fieldName, rc)
+
+          double precision, pointer, intent(inout) :: fieldPtr(:)
+          character(len=*), intent(in)             :: fieldName
+          integer, intent(out)                     :: rc
+
+          rc = ESMF_SUCCESS
+
+          select case (fieldName)
+            case ("sst")
+	       fieldPtr = tempv(1,:)
+            case default
+              call ESMF_LogWrite("  OCN unknown field name",
+     +          ESMF_LOGMSG_INFO, rc=rc)
+              rc = 1
+          end select
+
+        end subroutine
+
 
 	end module
