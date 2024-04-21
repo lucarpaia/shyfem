@@ -2585,29 +2585,29 @@ c----------------------------------------------------------
 	kstep = 1
 	call extract_conz(cnv,ndim,xv,yv,k0,kmin,kmax,kstep)
         call make_filename(itt,file,'hor','.txt')
-	call write_file(file,ndim,xv,yv)
+	call diffus2d_write_file(file,ndim,xv,yv)
 
 	kmin =   1051
 	kmax = 101051
 	kstep = 1000
 	call extract_conz(cnv,ndim,xv,yv,k0,kmin,kmax,kstep)
         call make_filename(itt,file,'ver','.txt')
-	call write_file(file,ndim,xv,yv)
+	call diffus2d_write_file(file,ndim,xv,yv)
 
 	kmin =   1001
 	kmax = 101101
 	kstep = 1001
 	call extract_conz(cnv,ndim,xv,yv,k0,kmin,kmax,kstep)
         call make_filename(itt,file,'dia','.txt')
-	call write_file(file,ndim,xv,yv)
+	call diffus2d_write_file(file,ndim,xv,yv)
 
 	call make_anal(itt,ndim,xv,yv,ct0,rk,dx)
         call make_filename(itt,file,'ana','.txt')
-	call write_file(file,ndim,xv,yv)
+	call diffus2d_write_file(file,ndim,xv,yv)
 
 	call extract_irreg(cnv,2*ndim,n,xv,yv,k0,dx,60.)
         call make_filename(itt,file,'p60','.txt')
-	call write_file(file,n,xv,yv)
+	call diffus2d_write_file(file,n,xv,yv)
 
 c----------------------------------------------------------
 c end of routine
@@ -2617,7 +2617,7 @@ c----------------------------------------------------------
 
 c****************************************************************
 
-	subroutine write_file(file,ndim,xv,yv)
+	subroutine diffus2d_write_file(file,ndim,xv,yv)
 
 	implicit none
 

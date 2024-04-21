@@ -31,7 +31,7 @@ c function grand(idum)
 c function ran(idum)
 c
 c function ran0(idum)		!shuffling random results
-c function ran1(idum)		!best random number generator
+c function shyran1(idum)	!best random number generator
 c function ran2(idum)		!good enough random number generator
 c function ran3(idum)		!different method (Knuth)
 c function ran4(idum)		!using des
@@ -78,7 +78,7 @@ c******************************************************
 
 	function ran00(idum)
 
-	ran00 = ran1(idum)
+	ran00 = shyran1(idum)
 
 	end
 
@@ -110,7 +110,7 @@ c******************************************************
 
 c******************************************************
 
-      function ran1(idum)
+      function shyran1(idum)
       dimension r(97)
       parameter (m1=259200,ia1=7141,ic1=54773,rm1=3.8580247e-6)
       parameter (m2=134456,ia2=8121,ic2=28411,rm2=7.4373773e-6)
@@ -135,8 +135,8 @@ c******************************************************
       ix2=mod(ia2*ix2+ic2,m2)
       ix3=mod(ia3*ix3+ic3,m3)
       j=1+(97*ix3)/m3
-      if(j.gt.97.or.j.lt.1) stop 'error stop ran1: internal error'
-      ran1=r(j)
+      if(j.gt.97.or.j.lt.1) stop 'error stop shyran1: internal error'
+      shyran1=r(j)
       r(j)=(float(ix1)+float(ix2)*rm2)*rm1
       return
       end

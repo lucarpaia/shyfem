@@ -600,7 +600,7 @@ c******************************************************************
       ix2=mod(ia2*ix2+ic2,m2)
       ix3=mod(ia3*ix3+ic3,m3)
       j=1+(97*ix3)/m3
-      if(j.gt.97.or.j.lt.1) stop 'error stop ran1: internal error'
+      if(j.gt.97.or.j.lt.1) stop 'error stop shyran1: internal error'
       heap_ran=r(j)
       r(j)=(float(ix1)+float(ix2)*rm2)*rm1
       return
