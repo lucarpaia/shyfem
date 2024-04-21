@@ -423,7 +423,7 @@ c---------------------------------------------------------
 	  ! solar radiation - positive from air to sea
 	  !------------------------------------------------
 
-          call meteo_get_heat_values(k,qs,ta,ur,tb,uw,cc,p)
+          call meteo_get_heat_values(k,qs,ta,ur,tb,uw,cc,p,iheat)
 	  call make_albedo(tm,albedo)
 	  qsdown = qs * (1. - albedo)
 	  qss = fice_free*qsdown + fice_cover*fice_pen*qsdown

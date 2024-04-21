@@ -43,6 +43,7 @@ c metrain is read from file in [mm/day] and converted to [m/s]
 
 
         integer, private, save  :: nkn_meteo = 0
+        integer, save           :: icall_nuopc = 0
 
         real, allocatable, save :: wxv(:)	! wind velocity in x [m/s]
         real, allocatable, save :: wyv(:)	! wind velocity in y [m/s]

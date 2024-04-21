@@ -1761,7 +1761,8 @@ c		\item[0] No coupling. SHYFEM runs standalone.
 c		\item[1] SHYFEM runs coupled with an atmospheric model within the ESMF framwork.
 c		\end{description}
 
-        call addpar('iatm',0.)        ! 0=SHYFEM standalone  1=coupled
+        call addpar('iatm',0.)        !0=SHYFEM standalone, 1=coupled
+        call addpar('idtatm',2592000.)!time step for output
 
 c
 c DOCS  END

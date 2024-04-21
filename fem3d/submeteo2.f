@@ -243,7 +243,7 @@ c DOCS  END
 	double precision, save, private :: da_out(4) = 0
 	double precision, save, private :: da_met(4) = 0
 
-	integer, save :: iwtype,itdrag
+	integer, save :: iwtype,itdrag,iatm
 	integer, save :: irtype
 	integer, save :: ihtype
 	integer, save :: ictype
@@ -313,6 +313,10 @@ c DOCS  END
 
 	real vconst(4)
 	integer nodes(1)
+	logical batm
+
+	batm = iatm == 1 .and. icall_nuopc == 1	!if first ocean timestep
+						!of coupled atm-oce timestep
 
 	if( icall .lt. 0 ) return
 
@@ -479,7 +483,8 @@ c DOCS  END
 !	treat wind data
 !	---------------------------------------------------------
 
-	if( .not. iff_is_constant(idwind) .or. icall == 1 ) then
+	if( .not. iff_is_constant(idwind) .or. icall == 1
+     +                                    .or. batm ) then
 	  call meteo_convert_wind_data(idwind,nkn,wxv,wyv
      +			,windcd,tauxnv,tauynv,metws,ppv,metice)
 	end if
@@ -488,7 +493,8 @@ c DOCS  END
 !	treat heat data
 !	---------------------------------------------------------
 
-        if( .not. iff_is_constant(idheat) .or. icall == 1 ) then
+        if( .not. iff_is_constant(idheat) .or. icall == 1 
+     +	                                  .or. batm ) then
           call meteo_convert_heat_data(idheat,nkn
      +                       ,metaux,mettair,metcc,ppv,methum)
         end if
@@ -627,6 +633,7 @@ c DOCS  END
 
         iwtype = nint(getpar('iwtype'))
         itdrag = nint(getpar('itdrag'))
+        iatm = nint(getpar('iatm'))
         wsmax = getpar('wsmax')
         wslim = getpar('wslim')
         dragco = getpar('dragco')
@@ -645,7 +652,7 @@ c DOCS  END
 
 	if( .not. iff_has_file(id) ) then
 
-	  iwtype = 0
+	  if ( iatm == 0 ) iwtype = 0
 
 	else if( string1 == ' ' ) then	!TS file or constant
 
@@ -765,7 +772,7 @@ c DOCS  END
 !*********************************************************************
 
 	subroutine meteo_convert_wind_data(id,n,wx,wy,cdv,tx,ty,ws
-     +						,pp,cice)
+     +                                         ,pp,cice)
 
 	integer id
 	integer n
@@ -808,7 +815,7 @@ c DOCS  END
             tx(k) = fice * wfact * wx(k)
             ty(k) = fice * wfact * wy(k)
             txy = sqrt( tx(k)**2 + ty(k)**2 )
-            wspeed = sqrt(txy/cd)
+            wspeed = sqrt(txy/(cd*wfact*roluft))
             wxymax = max(wxymax,wspeed)
             wx(k) = tx(k) / (cd*wspeed)
             wy(k) = ty(k) / (cd*wspeed)
@@ -1228,7 +1235,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	end do
 	call adjust_humidity_string(strings(3))		!FIXME
 
-        ihtype = nint(getpar('ihtype'))  
+        ihtype = nint(getpar('ihtype'))
 	if( ihtype == 1 ) then
 	  vapor = rhum
 	else if( ihtype == 2 ) then
@@ -1515,7 +1522,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 
 !*********************************************************************
 
-	subroutine meteo_get_heat_values(k,qs,ta,rh,twb,uw,cc,p)
+	subroutine meteo_get_heat_values(k,qs,ta,rh,twb,uw,cc,p,iheat)
 
 ! returns meteo parameters for one node
 !
@@ -1533,6 +1540,7 @@ c convert ice data (delete ice in ice free areas, compute statistics)
         real uw                         !wind speed [m/s]
         real cc                         !cloud cover [0-1]
         real p                          !atmospheric pressure [mbar, hPa]
+	integer iheat			!type of heat flux algorithm
 
 	qs = metrad(k)
 	ta = mettair(k)
@@ -1540,15 +1548,17 @@ c convert ice data (delete ice in ice free areas, compute statistics)
 	uw = metws(k)
 	cc = metcc(k)
 
-	cc = max(0.,cc)
-	cc = min(1.,cc)
-	rh = max(0.,rh)
-	rh = min(100.,rh)
+	if (iheat .ne. 7) then
+	  cc = max(0.,cc)
+	  cc = min(1.,cc)
+	  rh = max(0.,rh)
+	  rh = min(100.,rh)
 
-	p = ppv(k)
-	p = 0.01 * p					  !Pascal to mb
+	  p = ppv(k)
+	  p = 0.01 * p					  !Pascal to mb
 
-	call rh2wb(ta,p,rh,twb)
+	  call rh2wb(ta,p,rh,twb)
+       end if
 
 	end subroutine meteo_get_heat_values
 

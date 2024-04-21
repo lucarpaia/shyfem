@@ -525,11 +525,7 @@
 	dtmax = dtend					!stand-alone mode
 	if( dtstep > 0. ) then
 	  dtmax = dtime + dtstep	!nuopc mode
-	  print *
-	  write(6,1200)' nuopc call to shyfem               nuopc dt : ', 
-     &	    dtstep
-	  print *
- 1200   format(a,f12.2)
+	  icall_nuopc = 1		!need to know if it is first nuopc call
 	end if
 
 	do while( dtime .lt. dtmax )
@@ -597,6 +593,8 @@
 	   bfirst = .false.
 
 	   call test_zeta_write
+
+	   icall_nuopc = 0		!the next timsteps are not first nuopc call
 
 	end do
 
