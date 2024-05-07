@@ -755,10 +755,18 @@
 	  integer                         :: SHYFEM_numberOfElements
 	  integer, allocatable            :: SHYFEM_nodeIds(:)
 	  integer, allocatable            :: SHYFEM_nodeOwners(:)
+          integer, allocatable            :: SHYFEM_nodeMask(:)
 	  real(ESMF_KIND_R8), allocatable :: SHYFEM_nodeCoords(:)
           integer, allocatable            :: SHYFEM_elementIds(:)
 	  integer, allocatable            :: SHYFEM_elementTypes(:)
 	  integer, allocatable            :: SHYFEM_elementConn(:)
+          real(ESMF_KIND_R8), allocatable :: SHYFEM_elementCoords(:)
+
+!         type(ESMF_Field)                :: onesField, maskField
+!	  double precision, pointer       :: fieldPtr2d(:,:)
+!	  double precision, pointer       :: fieldPtr1d(:)
+!    	  type(ESMF_Grid)                 :: gridForMask
+!         type(ESMF_RouteHandle)          :: rh
 
 	  integer                         :: i, ie
           real, external                  :: getpar
@@ -773,6 +781,7 @@
           SHYFEM_numberOfElements = nel
 
           allocate( SHYFEM_nodeIds(SHYFEM_numberOfNodes) )
+          allocate( SHYFEM_nodeMask(SHYFEM_numberOfNodes) )
 	  allocate( SHYFEM_nodeCoords(SHYFEM_numberOfNodes
      +      *SHYFEM_spatialDim) )
           allocate( SHYFEM_nodeOwners(SHYFEM_numberOfNodes) )
@@ -780,6 +789,8 @@
 	  allocate( SHYFEM_elementIds(SHYFEM_numberOfElements) )
           allocate( SHYFEM_elementTypes(SHYFEM_numberOfElements) )
           allocate( SHYFEM_elementConn(SHYFEM_numberOfElements*3) )
+          allocate( SHYFEM_elementCoords(SHYFEM_numberOfElements
+     +      *SHYFEM_spatialDim) )
 
 	  !! The structure of the per node and element information used to 
 	  !! create a Mesh is influenced by the Mesh distribution strategy. 
@@ -812,6 +823,7 @@
 	  SHYFEM_nodeOwners = 0
 	  do i=1,SHYFEM_numberOfNodes
 	    SHYFEM_nodeIds(i) = i
+            SHYFEM_nodeMask(i) = 0
 	    SHYFEM_nodeCoords(i*SHYFEM_spatialDim-1) = xgv(i)
 	    SHYFEM_nodeCoords(i*SHYFEM_spatialDim)   = ygv(i)
 	  enddo
@@ -836,12 +848,18 @@
 	  !! element with parametric dimension 2, the nodes should be given in 
 	  !! counterclockwise order around the element. 
 	  SHYFEM_elementTypes = ESMF_MESHELEMTYPE_TRI
+	  SHYFEM_elementCoords = 0.
           do ie=1,SHYFEM_numberOfElements
             SHYFEM_elementIds(ie) = ie
 	    do i=1,3
               SHYFEM_elementConn((ie-1)*3+i) = nen3v(i,ie)
+	      SHYFEM_elementCoords(ie*SHYFEM_spatialDim-1) =
+     +		SHYFEM_elementCoords(ie*SHYFEM_spatialDim-1) + xgv(nen3v(i,ie))
+              SHYFEM_elementCoords(ie*SHYFEM_spatialDim)   =
+     +		SHYFEM_elementCoords(ie*SHYFEM_spatialDim)   + ygv(nen3v(i,ie))
 	    enddo
           enddo
+	  SHYFEM_elementCoords = 0.333333D0 * SHYFEM_elementCoords
 
           !! The coordinate system is asked to the SHYFEM configuration file. Please
           !! note that the user must assure that a single coordinate system
@@ -861,9 +879,107 @@
      +      spatialDim=SHYFEM_spatialDim,
      +      coordSys=SHYFEM_coordSys,
      +      nodeIds=SHYFEM_nodeIds, nodeCoords=SHYFEM_nodeCoords,
-     +      nodeOwners=SHYFEM_nodeOwners, elementIds=SHYFEM_elementIds,
+     +      nodeOwners=SHYFEM_nodeOwners, nodeMask=SHYFEM_nodeMask,
+     +      elementIds=SHYFEM_elementIds,
      +      elementTypes=SHYFEM_elementTypes, 
+     +	    elementConn=SHYFEM_elementConn,
+     +      elementCoords=SHYFEM_elementCoords,
+     +      rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+!          call SHYFEM_MaskCreate(SHYFEM_mesh, SHYFEM_nodeMask, rc)
+
+          !! Here it comes the ESMF command that create a regular grid. It is worth
+          !! mentioning that, aside from the geometry (bounds, resolution, reference
+          !! framework), we need also to clarify the grid staggering. For our toy model
+          !! we assume a very simple staggering where all quantity are located at the cell
+          !! center. Of course this is not the case for operational atmospheric models
+          !! where C-staggering is typically employed.
+!          gridForMask = ESMF_GridCreateNoPeriDimUfrm(
+!     +      maxIndex=(/20, 20/),
+!     +      minCornerCoord=(/9.0D0,38.0D0/),
+!     +      maxCornerCoord=(/21.0D0, 46.0D0/),
+!     +      coordSys=ESMF_COORDSYS_SPH_DEG,
+!     +      staggerLocList=(/ESMF_STAGGERLOC_CENTER/),
+!     +      rc=rc)
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +      line=__LINE__,
+!     +      file=__FILE__))
+!     +      return  ! bail out
+!
+!          maskField = ESMF_FieldCreate(gridForMask, ESMF_TYPEKIND_R8,
+!     +      staggerloc=ESMF_STAGGERLOC_CENTER, name="ones", rc=rc)
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +      line=__LINE__,
+!     +      file=__FILE__))
+!     +      return  ! bail out
+!
+!          onesField = ESMF_FieldCreate(SHYFEM_mesh,  ESMF_TYPEKIND_R8,
+!     +      meshloc=ESMF_MESHLOC_NODE, name="mask", rc=rc)
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +      line=__LINE__,
+!     +      file=__FILE__))
+!     +      return  ! bail out
+!          call ESMF_FieldGet(onesField, localDe=0,
+!     +      farrayPtr=fieldPtr1d, rc=rc)
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +      line=__LINE__,
+!     +      file=__FILE__))
+!     +      return  ! bail out
+!          fieldPtr1d=1.
+!
+!	  call ESMF_FieldRegridStore(onesField, maskField,
+!!!     +	    srcMaskValues=(/srcMaskVal/), dstMaskValues=(/dstMaskVal/),
+!     +	    unmappedaction=ESMF_UNMAPPEDACTION_IGNORE,
+!     +	    routehandle=rh,
+!     +	    regridmethod=ESMF_REGRIDMETHOD_BILINEAR,
+!     +	    rc=rc)
+!	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +	    line=__LINE__,
+!     +	    file=__FILE__))
+!     +	    return  ! bail out
+!	  call ESMF_FieldRegrid(onesField, maskField, rh, rc=rc)
+!	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +	    line=__LINE__,
+!     +	    file=__FILE__))
+!     +	    return  ! bail out
+!
+!          call ESMF_FieldRegridStore(maskField, onesField,
+!!!     +            srcMaskValues=(/srcMaskVal/), dstMaskValues=(/dstMaskVal/),
+!     +      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE,
+!     +      routehandle=rh,
+!     +      regridmethod=ESMF_REGRIDMETHOD_BILINEAR,
+!     +      rc=rc)
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +      line=__LINE__,
+!     +      file=__FILE__))
+!     +      return  ! bail out
+!          call ESMF_FieldRegrid(maskField, onesField, rh, rc=rc)
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +      line=__LINE__,
+!     +      file=__FILE__))
+!     +      return  ! bail out
+!
+!          call SHYFEM_FieldWrite(onesField,  "shyfem_mask.vtk", rc)
+!
+!	  where( fieldPtr1d<1.D0) SHYFEM_nodeMask=1
+
+	  call ESMF_MeshFreeMemory(SHYFEM_mesh, rc)
+          !! Once we have collected the mesh properties in the correct form,
+          !! a final call create the mesh object at once. We also print to
+          !! file in vtk format, that can be visualize with Paraview.
+          SHYFEM_mesh = ESMF_MeshCreate(parametricDim=SHYFEM_spatialDim,
+     +      spatialDim=SHYFEM_spatialDim,
+     +      coordSys=SHYFEM_coordSys,
+     +      nodeIds=SHYFEM_nodeIds, nodeCoords=SHYFEM_nodeCoords,
+     +      nodeOwners=SHYFEM_nodeOwners, nodeMask=SHYFEM_nodeMask,
+     +      elementIds=SHYFEM_elementIds,
+     +      elementTypes=SHYFEM_elementTypes,
      +      elementConn=SHYFEM_elementConn,
+     +      elementCoords=SHYFEM_elementCoords,
      +      rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
@@ -871,11 +987,110 @@
      +      return  ! bail out
 
           deallocate( SHYFEM_nodeIds, SHYFEM_nodeOwners, 
-     +      SHYFEM_nodeCoords )
+     +      SHYFEM_nodeMask, SHYFEM_nodeCoords )
 	  deallocate( SHYFEM_elementIds, SHYFEM_elementTypes, 
-     +      SHYFEM_elementConn )
+     +      SHYFEM_elementConn, SHYFEM_elementCoords )
 
 	end subroutine
+
+        !-----------------------------------------------------------------------------
+
+        !! Eventually we write the regridded fields to files.
+        !! This can be helpful for debugging and checking the interpolations.
+        !! We can write such a file with ESMF subroutine \textsf{SHYFEM\_FieldWrite}
+        !! but this works only with the third party library PARALLELIO (PIO).
+        !! Moreover the only format allowed when this manual was written was netcdf
+        !! (ugrid). We have preferred to do use vtk format to visualize the data,
+        !! as done with the mesh. This lead to only one type of file outputted.
+        !! Vtk files can be visualize nicely with Paraview.
+	subroutine SHYFEM_MaskCreate(SHYFEM_mesh, nodeMask, rc)
+
+          type(ESMF_Mesh), intent(in)           :: SHYFEM_mesh
+	  integer, dimension(:), intent(inout)  :: nodeMask
+	  integer, intent(out)                  :: rc
+
+	  type(ESMF_Grid)                       :: gridForMask
+	  type(ESMF_Field)                      :: onesField, maskField
+	  double precision, pointer             :: fieldPtr2d(:,:)
+	  double precision, pointer             :: fieldPtr1d(:)
+	  type(ESMF_RouteHandle)                :: rh
+
+	  rc = ESMF_SUCCESS
+
+	  !! Here it comes the ESMF command that create a regular grid. It is worth
+	  !! mentioning that, aside from the geometry (bounds, resolution, reference
+	  !! framework), we need also to clarify the grid staggering. For our toy model
+	  !! we assume a very simple staggering where all quantity are located at the cell
+	  !! center. Of course this is not the case for operational atmospheric models
+	  !! where C-staggering is typically employed.
+	  gridForMask = ESMF_GridCreateNoPeriDimUfrm(
+     +      maxIndex=(/20, 20/),
+     +      minCornerCoord=(/9.0D0,38.0D0/),
+     +      maxCornerCoord=(/21.0D0, 46.0D0/),
+     +      coordSys=ESMF_COORDSYS_SPH_DEG,
+     +      staggerLocList=(/ESMF_STAGGERLOC_CENTER/),
+     +      rc=rc)
+	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+	  maskField = ESMF_FieldCreate(gridForMask, ESMF_TYPEKIND_R8,
+     +      staggerloc=ESMF_STAGGERLOC_CENTER, name="ones", rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+	  onesField = ESMF_FieldCreate(SHYFEM_mesh,  ESMF_TYPEKIND_R8,
+     +      meshloc=ESMF_MESHLOC_NODE, name="mask", rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+	  call ESMF_FieldGet(onesField, localDe=0,
+     +      farrayPtr=fieldPtr1d, rc=rc)
+          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+	  fieldPtr1d=1.
+
+	  call ESMF_FieldRegridStore(onesField, maskField,
+     +      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE,
+     +      routehandle=rh,
+     +      regridmethod=ESMF_REGRIDMETHOD_BILINEAR,
+     +      rc=rc)
+	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+	  call ESMF_FieldRegrid(onesField, maskField, rh, rc=rc)
+	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+	  call ESMF_FieldRegridStore(maskField, onesField,
+     +      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE,
+     +      routehandle=rh,
+     +      regridmethod=ESMF_REGRIDMETHOD_BILINEAR,
+     +      rc=rc)
+	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+	  call ESMF_FieldRegrid(maskField, onesField, rh, rc=rc)
+	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+     +      line=__LINE__,
+     +      file=__FILE__))
+     +      return  ! bail out
+
+	  call SHYFEM_FieldWrite(onesField,  "shyfem_mask.vtk", rc)
+
+	  where( fieldPtr1d<1.D0) nodeMask=1
+
+	end subroutine	
 
         !-----------------------------------------------------------------------------
 
