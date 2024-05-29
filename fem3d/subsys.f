@@ -1755,13 +1755,24 @@ c Parameters in section |$atm| activate the ocean-atmosphere coupling.
         call sctpar('atm')           !sets default section
         call sctfnm('atm')
 
-c |iatm|	Type of ocean-atmosphere coupling (default 0):
-c		\begin{description}
-c		\item[0] No coupling. SHYFEM runs standalone.
-c		\item[1] SHYFEM runs coupled with an atmospheric model within the ESMF framwork.
-c		\end{description}
+c |iatm|        Ocean-atmosphere coupling (default 0):
+c               \begin{description}
+c               \item[0] No coupling with the atmosphere. SHYFEM runs
+c                        standalone with the usual call |shyfem config.str|.
+c               \item[1] SHYFEM runs coupled with an atmospheric model within the ESMF framwork.
+c                        For now the atmospheric model available is WRF.
+c                        You should have a look the the specific section to see how to run
+c                        a coupled SHYFEM-WRF simulation in the specific section
+c               \end{description}
 
-        call addpar('iatm',0.)        !0=SHYFEM standalone, 1=coupled
+        call addpar('iatm',0.)        !0=SHYFEM standalone, 1=coupled with
+
+c |idtatm|      Time step (only in seconds for now) for writing the atmospheric
+c               fields computed by the atmosphere component and
+c               remapped onto the SHYFEM grid, to a vtk file. This is useful
+c               especially for debugging. For operational runs it is
+c               better not to specify it (no atmospheric fields are printed).
+
         call addpar('idtatm',2592000.)!time step for output
 
 c

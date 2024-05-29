@@ -268,14 +268,14 @@
 	subroutine shyfem_main
 	use mod_shyfem
 	implicit none
-	call shyfem_initialize
+	call shyfem_initialize(.true.)
 	call shyfem_run(zero)
 	call shyfem_finalize
 	end subroutine shyfem_main
 
 !*****************************************************************
 
-	subroutine shyfem_initialize
+	subroutine shyfem_initialize(mpi_init)
 
 !-----------------------------------------------------------
 ! start of program
@@ -284,6 +284,8 @@
 	use mod_shyfem
 
 	implicit none
+
+	logical, intent(in) :: mpi_init
 
 	call cpu_time(time1)
 	call cpu_time_init
@@ -316,7 +318,7 @@
 	call cstinit
 	call cstfile(strfile)			!read STR and basin
 
-	call shympi_init(.true.)
+	call shympi_init(.true., mpi_init)
 	call setup_omp_parallel
 
 	call cpu_time(time3)

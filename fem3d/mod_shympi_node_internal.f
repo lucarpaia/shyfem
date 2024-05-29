@@ -103,26 +103,38 @@
 
 !******************************************************************
 
-	subroutine shympi_init_internal(my_id,n_threads)
+	subroutine shympi_init_internal(my_id,n_threads,binit)
 
 	use shympi_aux
 
 	implicit none
 
 	integer my_id,n_threads
+	logical, optional :: binit
 
 	integer ierr,iberr
 	integer required,provided
+	logical abinit
+
+	if (present(binit)) then
+	  abinit = binit
+	else
+	  abinit = .true.   !default value: initialize MPI
+	endif
 
 	required = MPI_THREAD_MULTIPLE
 	required = MPI_THREAD_SERIALIZED
 
         !call MPI_INIT( ierr )
-        call MPI_INIT_THREAD( required, provided, ierr )
+	ierr = 0
+!	required = 0 !lrp: see this with georg
+!	provided = 0 !lrp: see this with georg
+	if( abinit ) call MPI_INIT_THREAD( required, provided, ierr )
 	!write(6,*) 'thread safety: ',required, provided
 	!write(6,*) 'initializing MPI: ',ierr
 
 	call MPI_BARRIER( MPI_COMM_WORLD, iberr)
+	call shympi_error('shympi_init_internal','init',iberr)
 	call shympi_error('shympi_init_internal','init',ierr)
         call MPI_COMM_RANK( MPI_COMM_WORLD, my_id, ierr )
 	call shympi_error('shympi_init_internal','rank',ierr)
@@ -136,9 +148,6 @@
 	bpmaster = ( my_p_id == 0 )
 	bpmpi = ( n_p_threads > 1 )
 
-        !call shympi_finalize_internal
-	!stop
-	!write(6,*) 'MPI internally initialized: ',my_id,n_threads
 
 	end subroutine shympi_init_internal
 
