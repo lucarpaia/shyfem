@@ -400,7 +400,8 @@ c---------------------------------------------------------
 	  if (is_dry_node(k)) then	!do not compute if node is dry
 	    dtw(k)   = 0.
 	    tws(k)   = temp(lmin,k)
-	    evapv(k) = 0.
+	    evapv(k) = 0.		!for atm-ocn coupled run, this sets a
+					!evaporation until the next atm-ocn coupled timestep
 	    cycle
 	  end if
 
@@ -455,7 +456,11 @@ c---------------------------------------------------------
 	    qsens = ta
 	    qlat  = ur
 	    qlong = -cc	  !change sign of long wave radiation given by ISAC
-	    evap  = qlat / (2.5008e6 - 2.3e3 * tm)	!pom, gill, gotm
+	    if (.not.batm)  then
+              evap  = qlat / (2.5008e6 - 2.3e3 * tm)	!pom, gill, gotm
+	    else
+	      evap  = evapv(k)				!take from atm model
+	    endif
           else if( iheat .eq. 8 ) then
             ddlon = xgv(k)    
             ddlat = ygv(k)   
@@ -595,9 +600,10 @@ c	  evap is in [kg/(m**2 s)] -> convert it to [m/s]
 c	  evap is normally positive -> we are loosing mass
 c	  ---------------------------------------------------------
 
-	  evap = evap / rhow			!evaporation in m/s
-	  evapv(k) = evap			!positive if loosing mass
-
+	  if (.not.batm) then    		!for coupled runs evap has been already converted
+	    evap = evap / rhow			!evaporation in m/s
+	    evapv(k) = evap			!positive if loosing mass
+	  endif
           ddq = ddq + qtot * dt * area
 
 	end do

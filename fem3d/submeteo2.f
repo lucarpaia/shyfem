@@ -503,8 +503,9 @@ c DOCS  END
 !	treat rain data
 !	---------------------------------------------------------
 
-	if( .not. iff_is_constant(idrain) .or. icall == 1 ) then
-	  call meteo_convert_rain_data(idrain,nkn,metrain)
+	if( .not. iff_is_constant(idrain) .or. icall == 1
+     +                                    .or. batm ) then
+	  call meteo_convert_rain_data(idrain,nkn,metrain,evapv)
 	end if
 
 !------------------------------------------------------------------
@@ -1003,13 +1004,14 @@ c DOCS  END
 
 !*********************************************************************
 
-	subroutine meteo_convert_rain_data(id,n,r)
+	subroutine meteo_convert_rain_data(id,n,r,e)
 
 c convert rain from mm/day to m/s
 
 	integer id
 	integer n
 	real r(n)
+	real e(n)
 
 	integer i
 	real fact
@@ -1020,6 +1022,11 @@ c convert rain from mm/day to m/s
 	do i=1,n
 	  r(i) = r(i) * fact
 	end do
+	if (iatm==1) then	!for atm-ocn run we convert evap kg/m**2*s to m/s
+          do i=1,n
+            e(i) = e(i) / rowass
+          end do	
+	endif
 
 	end subroutine meteo_convert_rain_data
 
