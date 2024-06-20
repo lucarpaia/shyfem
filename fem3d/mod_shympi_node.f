@@ -2108,6 +2108,7 @@
 	integer noh,nov
 	integer nih,niv
 	real, allocatable :: val_domain(:,:,:)
+	real, allocatable :: val_aux(:,:)
 
 	nih = size(vals,2)
 	niv = size(vals,1)
@@ -2127,10 +2128,12 @@
 	end if
 
 	allocate(val_domain(nov,nn_max,n_threads))
+	allocate(val_aux(nov,nn_max))
+	val_aux = 0.
+	val_aux(1:niv,1:nih) = vals
 	val_domain = 0.
 
-	call shympi_gather_array_3d_r(vals,val_domain)
-
+	call shympi_gather_array_3d_r(val_aux,val_domain)
 	if( bnode ) then
 	  !n_domains => nkn_domains
 	  !ip_ints => ip_int_nodes
