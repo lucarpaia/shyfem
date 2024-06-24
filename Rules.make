@@ -254,7 +254,7 @@ GPU=NONE
 ##############################################
 
 NETCDF = false
-#NETCDF = true
+NETCDF = true
 #NETCDFDIR =
 
 ##############################################
@@ -362,8 +362,8 @@ FLUID_MUD = false
 # useful variables to compile NUOPC code.
 ##############################################
 
-NUOPC = true
-ESMFDIR = /usr2/luca/Devs/esmf-8.6.0
+NUOPC = false
+ESMFDIR = /usr2/path/to/esmf-8.6.0
 
 ##############################################
 # end of user defined parameters and flags
