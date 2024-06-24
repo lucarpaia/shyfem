@@ -21,9 +21,10 @@
         !! You could also couples the ocean component only through
 	!! momentum or heat flux or sst only. This may be useful for
 	!! debugging and testing for example. In general, all the macros must be defined.
-#define  WITHFIELDS_MOMENTUMFLUX
-#define  WITHFIELDS_HEATFLUX
-#undef   WITHFIELDS_SST
+#undef  WITHFIELDS_MOMENTUMFLUX
+#undef  WITHFIELDS_HEATFLUX
+#undef  WITHFIELDS_MASSFLUX
+#undef  WITHFIELDS_SST
 
 	!! The ocean component is coded into a Fortran module.
         module ocean_shyfem
@@ -60,7 +61,8 @@
           real(ESMF_KIND_R8), allocatable :: xgv_ghost(:)
           real(ESMF_KIND_R8), allocatable :: ygv_ghost(:)
           integer, allocatable            :: nen3v_ghost(:,:)
-          integer                         :: localPet
+	  integer, allocatable            :: table_ghostToLocal(:)
+	  integer                         :: localPet
           integer                         :: petCount
         end type
 
@@ -190,7 +192,7 @@
 	  !! array. This ordering is beneficial to factorize the code and perform the 
 	  !! many operations of the fields with do loops. You have to keep in mind that, 
 	  !! first we have import fields, and only after we have export fields. 
-	  allocate( SHYFEM_FieldMetadata(8) )
+	  allocate( SHYFEM_FieldMetadata(11) )
 
           !! The field list is defined here. You can modify this part adding new fields.
 	  !! The metadata of each field is filled with a simple constructor statement.
@@ -256,8 +258,29 @@
      +      longName="surface_downward_latent_heat_flux_in_air",
      +      meshloc=ESMF_MESHLOC_NODE)
 #endif
+#ifdef WITHFIELDS_MASSFLUX
+          !! \item evaporation $E$.
+          num = num + 1
+	  SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
+     +      fieldName="evap",
+     +      longName="evaporation_flux",
+     +      meshloc=ESMF_MESHLOC_NODE)
+
+          !! \item precipitation $P$.
+          num = num + 1
+	  SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
+     +      fieldName="prec",
+     +      longName="precipitation_flux",
+     +      meshloc=ESMF_MESHLOC_NODE)
+#endif
           SHYFEM_numOfImportFields = num
 #ifdef WITHFIELDS_SST
+          num = num + 1
+	  SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
+     +      fieldName="umap",
+     +      longName="atmospheric_unmapped_points",
+     +      meshloc=ESMF_MESHLOC_NODE)
+
 	  !! \item sea surface salinity.
           num = num + 1
 	  SHYFEM_FieldMetadata(num) = SHYFEM_Metadata(
@@ -321,6 +344,8 @@
           type(ESMF_Mesh)         :: meshIn
 	  double precision, pointer :: fieldPtr(:)
 	  integer                 :: var
+    	  type(ESMF_VM) :: vm
+
 
 	  rc = ESMF_SUCCESS
 
@@ -338,8 +363,18 @@
 	  !! since they stay constant along the simulations. For now
 	  !! these info are used only to append to the name of the output file 
 	  !! info about the PET.
-          call ESMF_GridCompGet(model,
-     +      localPet=ShyfemToEsmf_Mesh%localPet,
+	  
+!          call ESMF_GridCompGet(model,
+!     +      localPet=ShyfemToEsmf_Mesh%localPet,
+!     +      petCount=ShyfemToEsmf_Mesh%petCount, rc=rc)
+!          if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
+!     +      line=__LINE__,
+!     +      file=__FILE__))
+!     +      return  ! bail out
+
+	  call ESMF_VMGetCurrent(vm, rc=rc)
+
+	  call ESMF_VMGet(vm, localPet=ShyfemToEsmf_Mesh%localPet,
      +      petCount=ShyfemToEsmf_Mesh%petCount, rc=rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
@@ -361,7 +396,6 @@
      +      file=__FILE__))
      +      return
           call ESMF_LogWrite("  Get Mesh OCN", ESMF_LOGMSG_INFO, rc=rc)
-
           call ESMF_MeshWrite(meshIn, "shyfem_mesh", rc)
           if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
      +      line=__LINE__,
@@ -465,6 +499,7 @@
 
             call SHYFEM_FieldGet(fieldPtr,
      +        SHYFEM_FieldMetadata(var)%fieldName, rc)
+!     +        ShyfemToEsmf_Mesh, rc)
 	    !enddo
 
 	  enddo
@@ -656,8 +691,8 @@
           end if
 	  if( iuinfo > 0 ) then	  
 	    print * 
-            print *,'shyfem_component_run:
-     +        start nuopc timestep at date ', TRIM(dateString)
+	    print *,'shyfem_component_run: start nuopc timestep at date ',
+     +        TRIM(dateString)
             print *
 	  endif
 
@@ -701,6 +736,7 @@
 
             call SHYFEM_FieldGet(fieldPtr,
      +        SHYFEM_FieldMetadata(var)%fieldName, rc)
+!     +        ShyfemToEsmf_Mesh, rc)
  
             !print *, "OCN: ", fieldPtr !lrp: debug
  
@@ -735,6 +771,12 @@
 	  call shyfem_finalize
 
 	  deallocate(SHYFEM_FieldMetadata)
+	  deallocate(ShyfemToEsmf_Mesh%id_node_ghost)
+	  deallocate(ShyfemToEsmf_Mesh%ipv_ghost)
+	  deallocate(ShyfemToEsmf_Mesh%xgv_ghost)
+          deallocate(ShyfemToEsmf_Mesh%ygv_ghost)
+	  deallocate(ShyfemToEsmf_Mesh%nen3v_ghost)
+	  deallocate(ShyfemToEsmf_Mesh%table_ghostToLocal)
 
 	  call ESMF_LogWrite("Finalized OCN", ESMF_LOGMSG_INFO, rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
@@ -824,8 +866,8 @@
 	  !! We got this from the well known global variables \textsf{nkn}
 	  !! and \textsf{nel} of SHYFEM. These are available into the module
 	  !! \textsf{grid} which is nested into \textsf{mod\_shyfem}
-	  SHYFEM_numberOfNodes    = ShyfemToEsmf_Mesh%nkn_ghost
-          SHYFEM_numberOfElements = nel_unique
+	  SHYFEM_numberOfNodes    = nkn_local !ShyfemToEsmf_Mesh%nkn_ghost
+          SHYFEM_numberOfElements = nel_local !nel_unique
 
           allocate( SHYFEM_nodeIds(SHYFEM_numberOfNodes) )
           allocate( SHYFEM_nodeMask(SHYFEM_numberOfNodes) )
@@ -835,7 +877,7 @@
 	  allocate( SHYFEM_elementIds(SHYFEM_numberOfElements) )
           allocate( SHYFEM_elementTypes(SHYFEM_numberOfElements) )
           allocate( SHYFEM_elementConn(SHYFEM_numberOfElements*3) )
-          allocate( SHYFEM_elementCoords(SHYFEM_numberOfElements
+	  allocate( SHYFEM_elementCoords(SHYFEM_numberOfElements
      +      *SHYFEM_spatialDim) )
 
 	  !! The structure of the per node and element information used to 
@@ -866,15 +908,15 @@
 	  !! so that the coordinates for a node lie in sequence in memory. For the 
 	  !! example shown above coordinates are in the following sequence
 	  !! $\{x_1,\,y_1,\,...,\,x_9,\,y_9\}$. 
-	  SHYFEM_nodeOwners = 0
+	  !SHYFEM_nodeOwners = 0
           do i=1,SHYFEM_numberOfNodes
-            SHYFEM_nodeOwners(i) = ShyfemToEsmf_Mesh%id_node_ghost(i)
-            SHYFEM_nodeIds(i) = ShyfemToEsmf_Mesh%ipv_ghost(i)
+            SHYFEM_nodeOwners(i) = id_node(i)!ShyfemToEsmf_Mesh%id_node_ghost(i)
+            SHYFEM_nodeIds(i) = ipv(i)!ShyfemToEsmf_Mesh%ipv_ghost(i)
             SHYFEM_nodeMask(i) = 0
-            SHYFEM_nodeCoords(i*SHYFEM_spatialDim-1) =
-     +        ShyfemToEsmf_Mesh%xgv_ghost(i)
-            SHYFEM_nodeCoords(i*SHYFEM_spatialDim) =
-     +        ShyfemToEsmf_Mesh%ygv_ghost(i)
+            SHYFEM_nodeCoords(i*SHYFEM_spatialDim-1) = xgv(i)
+!     +        ShyfemToEsmf_Mesh%xgv_ghost(i)
+            SHYFEM_nodeCoords(i*SHYFEM_spatialDim) = ygv(i)
+!     +        ShyfemToEsmf_Mesh%ygv_ghost(i)
           enddo
 
 	  !! For each element in the Mesh we set three properties: the global id 
@@ -902,7 +944,8 @@
            SHYFEM_elementIds(ie) = ipev(ie)
 	    do i=1,3
               SHYFEM_elementConn((ie-1)*3+i) =
-     +          ShyfemToEsmf_Mesh%nen3v_ghost(i,ie)
+!     +          ShyfemToEsmf_Mesh%nen3v_ghost(i,ie)
+     +          nen3v(i,ie)
 	      SHYFEM_elementCoords(ie*SHYFEM_spatialDim-1) =
      +		SHYFEM_elementCoords(ie*SHYFEM_spatialDim-1) + xgv(nen3v(i,ie))
               SHYFEM_elementCoords(ie*SHYFEM_spatialDim)   =
@@ -938,7 +981,7 @@
      +      line=__LINE__,
      +      file=__FILE__))
      +      return  ! bail out
-
+	  print *, "Mesh Created" 
           call SHYFEM_MaskCreate(SHYFEM_mesh, SHYFEM_nodeMask, rc)
 
 	  call ESMF_MeshFreeMemory(SHYFEM_mesh, rc)
@@ -1085,22 +1128,34 @@
 	  integer                          :: id_ghost
           integer, allocatable             :: ipv_inner(:)
           logical, allocatable             :: nodeFlag(:)
-          integer, allocatable             :: table_ghostToLocal(:)
+!          integer, allocatable             :: table_ghostToLocal(:)
           integer, allocatable             :: table_localToGhost(:)
           integer, allocatable             :: tmp(:)
 !
+	  !! We have to define the set of ghost node.
+	  !! From what seen before, inner and ghost nodes corresponds, i.e. they have the
+	  !! same local numbering.
           allocate( ipv_inner(nkn_inner) )
           allocate( nodeFlag(nkn_local) )
-          allocate( table_ghostToLocal(nkn_local) )
+          allocate( mesh%table_ghostToLocal(nkn_local) )
           allocate( table_localToGhost(nkn_local) )
 
           table_localToGhost = -1
           do i=1,nkn_inner
             ipv_inner(i)=ipv(i)
-            table_ghostToLocal(i) = i
+            mesh%table_ghostToLocal(i) = i
             table_localToGhost(i) = i
           enddo
 
+	  !! The nodes after the inner set do not correspond. We need to
+	  !! find the correct map between them. We loop over all the
+	  !! unique element set and, through the global node numbering
+	  !! we check if the node has been already added to the set of
+	  !! ghost node or not. If not we assign a new local numbering
+	  !! in an increasing fashion. The tables define the maps
+	  !! between the inner set and the ghost set. The map between
+	  !! that goes from the ghost set to the local set is saved for
+	  !! future purposes.
           nkn_ghost=nkn_inner
           nodeFlag = .true.
           do ie=1,nel_unique
@@ -1110,19 +1165,22 @@
               if ( ALL(id_ghost.ne.ipv_inner) .and.
      +             nodeFlag(nen3v(i,ie)) ) then
                 nkn_ghost=nkn_ghost+1
-                table_ghostToLocal(nkn_ghost) = nen3v(i,ie)
+                mesh%table_ghostToLocal(nkn_ghost) = nen3v(i,ie)
                 table_localToGhost(nen3v(i,ie)) = nkn_ghost
                 nodeFlag(nen3v(i,ie)) = .false.
               endif
 
             enddo
+!	    print *, ShyfemToEsmf_Mesh%localPet,
+!     +               ipev(ie)
+
           enddo
 
 	  mesh%nkn_ghost = nkn_ghost
 
           allocate(tmp(nkn_ghost))
-          tmp = table_ghostToLocal(1:nkn_ghost)
-          call move_alloc(tmp, table_ghostToLocal)
+          tmp = mesh%table_ghostToLocal(1:nkn_ghost)
+          call move_alloc(tmp, mesh%table_ghostToLocal)
 
           allocate( mesh%id_node_ghost(nkn_ghost) )
           allocate( mesh%ipv_ghost(nkn_ghost) )
@@ -1135,13 +1193,18 @@
             mesh%ipv_ghost(i) = ipv(i)
             mesh%xgv_ghost(i) = xgv(i)
             mesh%ygv_ghost(i) = ygv(i)
+!	    print *, ShyfemToEsmf_Mesh%localPet,
+!     +               id_node(i), ipv(i), i
           enddo
 
           do i=nkn_inner+1,nkn_ghost
-            mesh%id_node_ghost(i) = id_node(table_ghostToLocal(i))
-            mesh%ipv_ghost(i) = ipv(table_ghostToLocal(i))
-            mesh%xgv_ghost(i) = xgv(table_ghostToLocal(i))
-            mesh%ygv_ghost(i) = ygv(table_ghostToLocal(i))
+            mesh%id_node_ghost(i) = id_node(mesh%table_ghostToLocal(i))
+            mesh%ipv_ghost(i) = ipv(mesh%table_ghostToLocal(i))
+            mesh%xgv_ghost(i) = xgv(mesh%table_ghostToLocal(i))
+            mesh%ygv_ghost(i) = ygv(mesh%table_ghostToLocal(i))
+!	    print *, ShyfemToEsmf_Mesh%localPet,
+!     +               mesh%id_node_ghost(i),
+!     +               mesh%ipv_ghost(i), i
           enddo
 
           do ie=1,nel_unique
@@ -1154,13 +1217,18 @@
               endif
               mesh%nen3v_ghost(i,ie) = id_ghost
             enddo
+!	    print *, " con : ", ShyfemToEsmf_Mesh%localPet,
+!     +                         ipev(ie),
+!     +                          mesh%nen3v_ghost(1,ie),
+!     +                          mesh%nen3v_ghost(2,ie),
+!     +                          mesh%nen3v_ghost(3,ie)	    
           enddo
-	  print *, "Conversion to ESMF distributed mesh: done"
-          print *, "         nkn_inner  nkn_local  nkn_ghost"
-          print *, "     ",  nkn_inner, nkn_local, nkn_ghost
+!	  print *, "Conversion to ESMF distributed mesh: done"
+!          print *, "         nkn_inner  nkn_local  nkn_ghost"
+!          print *, "     ",  nkn_inner, nkn_local, nkn_ghost, nel_unique
 
 	  deallocate( ipv_inner, nodeFlag )
-	  deallocate( table_ghostToLocal, table_localToGhost )
+	  deallocate( table_localToGhost )
 
 	end subroutine
 
@@ -1193,9 +1261,9 @@
 	  !! A second constant field (one everywhere) is created attached to
 	  !! the SHYFEM mesh.
 	  gridForMask = ESMF_GridCreateNoPeriDimUfrm(
-     +      maxIndex=(/24, 24/), !maxIndex=(/20, 20/),
+     +      maxIndex=(/101, 101/), !maxIndex=(/20, 20/),
      +      minCornerCoord=(/0.0D0,0.0D0/), !minCornerCoord=(/9.0D0,38.0D0/),
-     +      maxCornerCoord=(/70000.0D0, 70000.0D0/), !maxCornerCoord=(/21.0D0, 46.0D0/),
+     +      maxCornerCoord=(/3000000.0D0, 3000000.0D0/), !maxCornerCoord=(/21.0D0, 46.0D0/),
      +      coordSys=ESMF_COORDSYS_CART, !coordSys=ESMF_COORDSYS_SPH_DEG,
      +      staggerLocList=(/ESMF_STAGGERLOC_CENTER/),
      +      rc=rc)
@@ -1450,6 +1518,12 @@
             case ("rlns")
               metcc(1:nkn_inner) = fieldPtr(1:nkn_inner)
 	      call shympi_exchange_2d_node(metcc)
+	    case ("evap")
+	      evapv(1:nkn_inner) = fieldPtr(1:nkn_inner)
+	      call shympi_exchange_2d_node(evapv)
+	    case ("prec")
+	      metrain(1:nkn_inner) = fieldPtr(1:nkn_inner)
+	      call shympi_exchange_2d_node(metrain)
 	    case default
               call ESMF_LogWrite("  OCN unknown field name", 
      +          ESMF_LOGMSG_INFO, rc=rc)
@@ -1468,17 +1542,32 @@
         !! \begin{itemize}
         !! \item \textsf{tempv} the sea temperature, in $[C]$
         !! \end{itemize}
+	!! We pass to the coupler only inner nodes. To realize
+	!! interpolation I expect to pass also ghost nodes but
+	!! a segmentation fault occurs. By the way passing inner
+	!! nodes seems enough for ESMF: remapped sst field are correct.
         subroutine SHYFEM_FieldGet(fieldPtr, fieldName, rc)
 
           double precision, pointer, intent(inout) :: fieldPtr(:)
           character(len=*), intent(in)             :: fieldName
-          integer, intent(out)                     :: rc
+!          type(SHYFEM_Mesh), intent(inout)         :: mesh
+	  integer, intent(out)                     :: rc
+
+	  integer				   :: i
 
           rc = ESMF_SUCCESS
 
           select case (fieldName)
+            case ("umap")
+	      fieldPtr(1:nkn_inner) = 1.D0
+!              do i=1,mesh%nkn_ghost
+!                fieldPtr(i) = 1.0
+!              enddo	  
             case ("sst")
-	       fieldPtr = tempv(1,:)
+	      fieldPtr(1:nkn_inner) = tempv(1,1:nkn_inner)
+!              do i=1,mesh%nkn_ghost
+!	        fieldPtr(i) = !tempv(1,mesh%table_ghostToLocal(i))
+!	      enddo !lrp
             case default
               call ESMF_LogWrite("  OCN unknown field name",
      +          ESMF_LOGMSG_INFO, rc=rc)
