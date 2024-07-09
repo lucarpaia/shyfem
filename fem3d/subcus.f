@@ -3845,7 +3845,7 @@ c**********************************************************************
 	ks = 7741
 	if( icall .eq. 0 ) ks = ipint(ks)
 
-	call meteo_get_heat_values(k,qs,ta,rh,wb,uw,cc,p)
+	call meteo_get_heat_values(k,qs,ta,rh,wb,uw,cc,p,0)
 
 	if( mod(it,21600) .eq. 0 ) write(565,*) it,qs,ta,rh,uw,cc
 	write(566,*) it,qs,ta,rh,uw,cc

@@ -145,11 +145,12 @@
 	implicit none
 
 	integer k
-	integer mode,layer
+	integer mode,layer,iheat
 	real qs,ta,rh,twb,uw,cc,p
 	real r,e,eeff
 	real tw,salt
 	real dt,hm
+	real getpar
 	double precision vars(nvars)
 
 	real depnode
@@ -158,6 +159,7 @@
 
 	mode = +1			!new time step
 	layer = 1			!only first layer
+        iheat = nint(getpar('iheat'))   !heat module
 	call get_timestep(dt)
 
 	do k=1,nkn
@@ -165,7 +167,7 @@
 	  call getts(layer,k,tw,salt)
 	  hm = depnode(layer,k,mode)
 
-	  call meteo_get_heat_values(k,qs,ta,rh,twb,uw,cc,p)
+	  call meteo_get_heat_values(k,qs,ta,rh,twb,uw,cc,p,iheat)
 	  call get_pe_values(k,r,e,eeff)
 
 	  call shyice_run(k,qs,ta,rh,uw,cc,p,r,hm,tw,salt,dt)
