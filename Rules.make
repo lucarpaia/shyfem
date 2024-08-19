@@ -465,13 +465,6 @@ ifeq ($(ECOLOGICAL),BFM)
   endif
 endif
 
-ifeq ($(NUOPC),true)
-  ifneq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
-    RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
-    RULES_MAKE_MESSAGE = "ESMF-NUOPC coupled model works only with Fortran compiler"
-  endif
-endif
-
 ifneq ($(PARALLEL_MPI),NONE)
   ifeq ($(PARALLEL_OMP),true)
     RULES_MAKE_PARAMETERS = RULES_MAKE_PARAMETER_ERROR
