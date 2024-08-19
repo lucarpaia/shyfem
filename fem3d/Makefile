@@ -120,21 +120,32 @@ endif
 #------------------------------------------------------------
 
 DIRBASE_ESMF   = $(ESMFDIR)
-#DIRLIB_ESMF    = $(DIRBASE_ESMF)/lib/libO/Linux.gfortran.64.mpiuni.default
-DIRLIB_ESMF    = $(DIRBASE_ESMF)/lib/libO/Linux.gfortran.64.openmpi.default
-ESMF_MKFILE    = $(DIRLIB_ESMF)/esmf.mk
+ifeq ($(FORTRAN_COMPILER),GNU_GFORTRAN)
+  ifeq ($(PARALLEL_MPI),NONE)
+    DIRLIB_ESMF= Linux.gfortran.64.mpiuni.default
+  else
+    DIRLIB_ESMF= Linux.gfortran.64.openmpi.default
+  endif
+else ifeq ($(FORTRAN_COMPILER),INTEL)
+  DIRLIB_ESMF  = Linux.intel.64.intelmpi.default
+endif
+ESMF_MKFILE    = $(DIRBASE_ESMF)/lib/libO/$(DIRLIB_ESMF)/esmf.mk
 NUOPCMOD       = ocean_shyfem
 NUOPC_OBJ      = nuopc_shyfem_cap.o
 
 ifeq ($(NUOPC),true)
-ifneq ("$(wildcard $(ESMF_MKFILE))","")
+  ifneq ("$(wildcard $(ESMF_MKFILE))","")
     include $(ESMF_MKFILE)
-else
-    $(error cannot find esmf mk file...)
-endif
-ifneq ($(ESMF_VERSION_MAJOR),8)
+  else
+    $(error cannot find esmf mk file $(ESMF_MKFILE))
+  endif
+  ifneq ($(ESMF_VERSION_MAJOR),8)
     $(error your installed esmf version $(ESMF_VERSION_MAJOR) is not tested with shyfem ...)
-endif
+  endif
+
+  INCL_ESMF=-I$(DIRBASE_ESMF)/mod/modO/$(DIRLIB_ESMF)
+  FFLAGS += $(INCL_ESMF)
+
 endif
 
 #------------------------------------------------------------
@@ -1103,13 +1114,6 @@ nuopc_info:
 	@echo "esmf compile options : $(ESMF_F90COMPILEOPTS)" 
 	@echo "esmf link options    : $(ESMF_F90LINKOPTS)"
 
-nuopc_copy:
-	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.openmpi.default/esmf.mod $(FEMDIR)/lib/mod 
-	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.openmpi.default/nuopc.mod $(FEMDIR)/lib/mod
-	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.openmpi.default/nuopc_model.mod $(FEMDIR)/lib/mod
-#	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/esmf.mod $(FEMDIR)/lib/mod 
-#	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc.mod $(FEMDIR)/lib/mod
-#	cp $(DIRBASE_ESMF)/mod/modO/Linux.gfortran.64.mpiuni.default/nuopc_model.mod $(FEMDIR)/lib/mod
 
 nuopc_clean:
 	-rm -f *.mk
@@ -1128,7 +1132,7 @@ nuopc_shyfem.mk:
 	@echo "SHYFEM_DEP_SHRD_LIBS = "$(LIBGOTM) $(LIBFEM) $(LIBMETIS) >> $@
 	@echo "SHYFEM_DEP_MOD_PATH = `pwd`/"$(DIRLIB)/mod  >> $@
 
-libnuopc: nuopc_copy $(LIBFNUOPC)
+libnuopc: $(LIBFNUOPC)
 
 $(LIBFNUOPC): nuopc_shyfem_cap.o shyfem_subs.o $(NEWOBJS) $(HTOBJS)
 	@echo "creating static library with shyfem and nuopc cap layer" 
