@@ -1377,10 +1377,14 @@
 
 	logical, parameter :: belem = .true.
 	integer nt
-	real aux(nlvdi,nel)
+	!real aux(nlvdi,nel)
+	real, allocatable :: aux(:,:)
+
+	allocate(aux(nlvdi,nel))
 
 	nt = nlvdi*nel
 	aux = val
+	call shympi_barrier
 	call shympi_exchange_3d_elem_r(aux)
 	call shympi_check_array_r(belem,nlvdi,nel,nt,val,aux,text)
 
@@ -1582,10 +1586,17 @@
 	real vals(:,:)
 
 	integer ni,no
+	real, allocatable :: aux(:)
+
 
 	ni = size(val)
 	no = size(vals,1)
-	call shympi_allgather_r_internal(ni,no,val,vals)
+
+	allocate(aux(no))
+	aux = 0.
+	aux(1:ni) = val(1:ni)
+
+	call shympi_allgather_r_internal(no,no,val,vals)
 
 	end subroutine shympi_gather_array_2d_r
 
@@ -2046,13 +2057,14 @@
 
 	logical bnode,belem
 	integer nous
-	real val_domain(nn_max,n_threads)
+	real, allocatable :: val_domain(:,:)
 
 	nous = size(val_out,1)
 
         bnode = ( nous == nkn_global )
         belem = ( nous == nel_global )
 
+	allocate( val_domain(nn_max,n_threads) )
 	call shympi_gather_array_2d_r(vals,val_domain)
 
 	if( bnode ) then
@@ -2076,13 +2088,14 @@
 
 	logical bnode,belem
 	integer nous
-	integer val_domain(nn_max,n_threads)
+	integer, allocatable :: val_domain(:,:)
 
 	nous = size(val_out,1)
 
         bnode = ( nous == nkn_global )
         belem = ( nous == nel_global )
 
+	allocate( val_domain(nn_max,n_threads) )
 	call shympi_gather_array_2d_i(vals,val_domain)
 
 	if( bnode ) then
@@ -2108,7 +2121,6 @@
 	integer noh,nov
 	integer nih,niv
 	real, allocatable :: val_domain(:,:,:)
-	real, allocatable :: val_aux(:,:)
 
 	nih = size(vals,2)
 	niv = size(vals,1)
@@ -2128,12 +2140,10 @@
 	end if
 
 	allocate(val_domain(nov,nn_max,n_threads))
-	allocate(val_aux(nov,nn_max))
-	val_aux = 0.
-	val_aux(1:niv,1:nih) = vals
 	val_domain = 0.
 
-	call shympi_gather_array_3d_r(val_aux,val_domain)
+	call shympi_gather_array_3d_r(vals,val_domain)
+
 	if( bnode ) then
 	  !n_domains => nkn_domains
 	  !ip_ints => ip_int_nodes
