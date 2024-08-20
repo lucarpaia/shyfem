@@ -1125,12 +1125,11 @@ nuopc_shyfem.mk:
 	@echo "# ESMF self-describing build dependency makefile fragment for SHYFEM model" > $@
 	@echo >> $@
 	@echo "SHYFEM_DEP_FRONT     = "$(NUOPCMOD)                      >> $@
-	@echo "SHYFEM_DEP_INCPATH   = `pwd`"                            >> $@
+	@echo "SHYFEM_DEP_INCPATH   = `pwd`/"$(DIRLIB)/mod              >> $@
 	@echo "SHYFEM_DEP_CMPL_OBJS = `pwd`/"$(NUOPC_OBJ)               >> $@
 	@echo "SHYFEM_DEP_LINK_OBJS = `pwd`/"$(LIBFNUOPC)               >> $@
 	@echo "SHYFEM_DEP_SHRD_PATH = `pwd`/"$(DIRLIB) $(METISDIR)/lib  >> $@
 	@echo "SHYFEM_DEP_SHRD_LIBS = "$(LIBGOTM) $(LIBFEM) $(LIBMETIS) >> $@
-	@echo "SHYFEM_DEP_MOD_PATH = `pwd`/"$(DIRLIB)/mod  >> $@
 
 libnuopc: $(LIBFNUOPC)
 
