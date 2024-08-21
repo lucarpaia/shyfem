@@ -1596,7 +1596,7 @@
 	aux = 0.
 	aux(1:ni) = val(1:ni)
 
-	call shympi_allgather_r_internal(no,no,val,vals)
+	call shympi_allgather_r_internal(no,no,aux,vals)
 
 	end subroutine shympi_gather_array_2d_r
 
@@ -2121,6 +2121,7 @@
 	integer noh,nov
 	integer nih,niv
 	real, allocatable :: val_domain(:,:,:)
+	real, allocatable :: aux(:,:)
 
 	nih = size(vals,2)
 	niv = size(vals,1)
@@ -2140,9 +2141,12 @@
 	end if
 
 	allocate(val_domain(nov,nn_max,n_threads))
+	allocate(aux(nov,nn_max))
+	aux = 0.
+	aux(1:niv,1:nih) = vals
 	val_domain = 0.
 
-	call shympi_gather_array_3d_r(vals,val_domain)
+	call shympi_gather_array_3d_r(aux,val_domain)
 
 	if( bnode ) then
 	  !n_domains => nkn_domains
