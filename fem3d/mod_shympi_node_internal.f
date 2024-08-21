@@ -110,17 +110,10 @@
 	implicit none
 
 	integer my_id,n_threads
-	logical, optional :: binit
+        logical :: binit
 
 	integer ierr,iberr
 	integer required,provided
-	logical abinit
-
-	if (present(binit)) then
-	  abinit = binit
-	else
-	  abinit = .true.   !default value: initialize MPI
-	endif
 
 	required = MPI_THREAD_MULTIPLE
 	required = MPI_THREAD_SERIALIZED
@@ -129,7 +122,7 @@
 	ierr = 0
 !	required = 0 !lrp: see this with georg
 !	provided = 0 !lrp: see this with georg
-	if( abinit ) call MPI_INIT_THREAD( required, provided, ierr )
+	if( binit ) call MPI_INIT_THREAD( required, provided, ierr )
 	!write(6,*) 'thread safety: ',required, provided
 	!write(6,*) 'initializing MPI: ',ierr
 
