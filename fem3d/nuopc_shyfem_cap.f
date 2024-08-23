@@ -629,7 +629,7 @@
      +      '_',I2.2,':',I2.2,':',I2.2)") currYear,
      +      currMonth, currDay, currHour, currMinute, currSecond
 	  idtatm = nint( max(getpar('idtatm'), timeStepSec ))
-          write(petString, "('.',I1,'.',I1)") 
+          write(petString, "('.',I0,'.',I0)") 
      +     ShyfemToEsmf_Mesh%petCount,ShyfemToEsmf_Mesh%localPet
 
           idtatm = nint( max(getpar('idtatm'), timeStepSec ))
@@ -1337,8 +1337,8 @@
 
 	  where( fieldPtr1d<1.D0) nodeMask=1
 
-	  write(petString, "('.',I1,'.',I1)") ShyfemToEsmf_Mesh%petCount,
-     +                                       ShyfemToEsmf_Mesh%localPet
+	  write(petString, "('.',I0,'.',I0)") ShyfemToEsmf_Mesh%petCount,
+     +                                        ShyfemToEsmf_Mesh%localPet
 	  call SHYFEM_FieldWrite(onesField,
      +      trim("shyfem_mask")//trim(petString)//trim(".vtk"), rc)
 
