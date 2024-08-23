@@ -770,13 +770,13 @@
 	  ! HERE THE MODEL IS FINALIZED: 
 	  call shyfem_finalize
 
-	  deallocate(SHYFEM_FieldMetadata)
-	  deallocate(ShyfemToEsmf_Mesh%id_node_ghost)
-	  deallocate(ShyfemToEsmf_Mesh%ipv_ghost)
-	  deallocate(ShyfemToEsmf_Mesh%xgv_ghost)
-          deallocate(ShyfemToEsmf_Mesh%ygv_ghost)
-	  deallocate(ShyfemToEsmf_Mesh%nen3v_ghost)
-	  deallocate(ShyfemToEsmf_Mesh%table_ghostToLocal)
+	  !deallocate(SHYFEM_FieldMetadata)
+	  !deallocate(ShyfemToEsmf_Mesh%id_node_ghost)
+	  !deallocate(ShyfemToEsmf_Mesh%ipv_ghost)
+	  !deallocate(ShyfemToEsmf_Mesh%xgv_ghost)
+          !deallocate(ShyfemToEsmf_Mesh%ygv_ghost)
+	  !deallocate(ShyfemToEsmf_Mesh%nen3v_ghost)
+	  !deallocate(ShyfemToEsmf_Mesh%table_ghostToLocal)
 
 	  call ESMF_LogWrite("Finalized OCN", ESMF_LOGMSG_INFO, rc=rc)
 	  if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU,
@@ -1400,14 +1400,14 @@
 !	  write(1, *) ShyfemToEsmf_Mesh%nkn_ghost, " double"
 	  write(1, *) nkn_inner, " double"
 	  do i=1,nkn_inner      !ShyfemToEsmf_Mesh%nkn_ghost
-            write(str,'(f11.3)') ShyfemToEsmf_Mesh%xgv_ghost(i)
+            write(str,'(f11.3)') xgv(i) !ShyfemToEsmf_Mesh%xgv_ghost(i)
 	    str = trim(adjustl(str))
 	    do ii = len_trim(str),1,-1
 	      if (str(ii:ii)/="0") exit
 	    enddo
             if (str(ii:ii)==".") ii=ii-1
 	    write(1,'(a,a)', advance="no") str(1:ii), " "
-            write(str,'(f11.3)') ShyfemToEsmf_Mesh%ygv_ghost(i)
+            write(str,'(f11.3)') ygv(i) !ShyfemToEsmf_Mesh%ygv_ghost(i)
             str = trim(adjustl(str))
             do ii = len_trim(str),1,-1
               if (str(ii:ii)/="0") exit
@@ -1419,9 +1419,12 @@
 	  write(1, *) nel_inner, nel_inner*4  !nel_unique, nel_unique*4
           do ie=1,nel_inner     !nel_unique
             write(1,"(i6X,i6X,i6X,i6)") 3,
-     +	      ShyfemToEsmf_Mesh%nen3v_ghost(1,ie)-1,
-     +        ShyfemToEsmf_Mesh%nen3v_ghost(2,ie)-1, 
-     +        ShyfemToEsmf_Mesh%nen3v_ghost(3,ie)-1
+!     +	      ShyfemToEsmf_Mesh%nen3v_ghost(1,ie)-1,
+!     +       ShyfemToEsmf_Mesh%nen3v_ghost(2,ie)-1, 
+!     +       ShyfemToEsmf_Mesh%nen3v_ghost(3,ie)-1
+     +        nen3v(1,ie)-1,
+     +        nen3v(2,ie)-1, 
+     +        nen3v(3,ie)-1
           end do
           write(1,'(a)', advance="no") "CELL_TYPES "
 	  write(1, *) nel_inner !nel_unique
