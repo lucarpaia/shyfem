@@ -860,7 +860,7 @@
 
 	  rc = ESMF_SUCCESS
 
-          call SHYFEM_ConvertMeshToEsmf(ShyfemToEsmf_Mesh)
+          !call SHYFEM_ConvertMeshToEsmf(ShyfemToEsmf_Mesh)
 
 	  !! We save the number of nodes and the number of elements
 	  !! We got this from the well known global variables \textsf{nkn}
@@ -1406,14 +1406,14 @@
 	      if (str(ii:ii)/="0") exit
 	    enddo
             if (str(ii:ii)==".") ii=ii-1
-	    write(1,'(a1X)', advance="no") str(1:ii)
+	    write(1,'(a,a)', advance="no") str(1:ii), " "
             write(str,'(f11.3)') ShyfemToEsmf_Mesh%ygv_ghost(i)
             str = trim(adjustl(str))
             do ii = len_trim(str),1,-1
               if (str(ii:ii)/="0") exit
             enddo
 	    if (str(ii:ii)==".") ii=ii-1
-            write(1,'(a1X,i1)') str(1:ii), 0
+            write(1,'(a,a,i1)') str(1:ii), " 0"
 	  end do
 	  write(1,'(a)', advance='no') "CELLS "
 	  write(1, *) nel_inner, nel_inner*4  !nel_unique, nel_unique*4
@@ -1439,7 +1439,7 @@
               if (str(ii:ii)/="0") exit
             enddo
             if (str(ii:ii)==".") ii=ii-1
-            write(1,'(a1X)', advance="no") str(1:ii)
+            write(1,'(a,a)', advance="no") str(1:ii), " "
           end do
 	  close(1)
 
